@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../models/sensor_data.dart';
 import '../providers/app_state.dart';
@@ -25,25 +26,49 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<AppState>(
-      builder: (context, state, _) {
-        final reading = state.readings.firstWhere((r) => r.id == _selectedSensor);
-        final history = state.historyFor(_selectedSensor);
-        final color = statusColor(reading.status);
+    return Scaffold(
+      backgroundColor: AppTheme.bg0,
+      appBar: AppBar(
+        backgroundColor: AppTheme.bg0,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: AppTheme.inkMid),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          'Analytics',
+          style: GoogleFonts.montserrat(
+            fontWeight: FontWeight.w800,
+            fontSize: 18,
+            letterSpacing: -1,
+            color: AppTheme.olive,
+          ),
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: AppTheme.divider),
+        ),
+      ),
+      body: Consumer<AppState>(
+        builder: (context, state, _) {
+          final reading = state.readings.firstWhere((r) => r.id == _selectedSensor);
+          final history = state.historyFor(_selectedSensor);
+          final color = statusColor(reading.status);
 
-        return ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            _buildSensorPicker(),
-            const SizedBox(height: 20),
-            _buildStatsRow(reading, history),
-            const SizedBox(height: 16),
-            _buildChartCard(reading, history, color),
-            const SizedBox(height: 16),
-            _buildAllSensorsTable(state),
-          ],
-        );
-      },
+          return ListView(
+            padding: const EdgeInsets.all(20),
+            children: [
+              _buildSensorPicker(),
+              const SizedBox(height: 20),
+              _buildStatsRow(reading, history),
+              const SizedBox(height: 16),
+              _buildChartCard(reading, history, color),
+              const SizedBox(height: 16),
+              _buildAllSensorsTable(state),
+            ],
+          );
+        },
+      ),
     );
   }
 

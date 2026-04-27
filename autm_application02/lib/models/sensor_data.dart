@@ -1,5 +1,14 @@
+// ─────────────────────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────────────────────
 enum SensorStatus { normal, warning, alert }
+enum DeviceStatus { auto, manualOn, manualOff }
+enum CaptureSlot { morning, afternoon, evening }
+enum HealthStatus { healthy, fair, poor }
 
+// ─────────────────────────────────────────────────────────────
+// SENSOR MODELS
+// ─────────────────────────────────────────────────────────────
 class SensorReading {
   final String id;
   final String label;
@@ -38,8 +47,31 @@ class SensorReading {
   double get percentage => ((value - min) / (max - min)).clamp(0.0, 1.0);
 }
 
-enum DeviceStatus { auto, manualOn, manualOff }
+class SensorHistory {
+  final String sensorId;
+  final List<SensorDataPoint> points;
+  SensorHistory({required this.sensorId, required this.points});
 
+  double get average => points.isEmpty
+      ? 0
+      : points.map((p) => p.value).reduce((a, b) => a + b) / points.length;
+  double get min => points.isEmpty
+      ? 0
+      : points.map((p) => p.value).reduce((a, b) => a < b ? a : b);
+  double get max => points.isEmpty
+      ? 0
+      : points.map((p) => p.value).reduce((a, b) => a > b ? a : b);
+}
+
+class SensorDataPoint {
+  final DateTime time;
+  final double value;
+  SensorDataPoint({required this.time, required this.value});
+}
+
+// ─────────────────────────────────────────────────────────────
+// DEVICE MODELS
+// ─────────────────────────────────────────────────────────────
 class DeviceState {
   final String id;
   final String label;
@@ -77,19 +109,6 @@ class DeviceState {
   }
 }
 
-class SensorHistory {
-  final String sensorId;
-  final List<SensorDataPoint> points;
-
-  SensorHistory({required this.sensorId, required this.points});
-}
-
-class SensorDataPoint {
-  final DateTime time;
-  final double value;
-  SensorDataPoint({required this.time, required this.value});
-}
-
 class AutomationRule {
   final String sensorId;
   final String deviceId;
@@ -103,5 +122,149 @@ class AutomationRule {
     required this.triggerLow,
     required this.triggerHigh,
     required this.actionDescription,
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+// ALERT MODEL
+// ─────────────────────────────────────────────────────────────
+class AlertRecord {
+  final String id;
+  final String sensorId;
+  final String sensorLabel;
+  final double value;
+  final String unit;
+  final SensorStatus alertType;
+  final DateTime createdAt;
+  bool isResolved;
+  DateTime? resolvedAt;
+
+  AlertRecord({
+    required this.id,
+    required this.sensorId,
+    required this.sensorLabel,
+    required this.value,
+    required this.unit,
+    required this.alertType,
+    required this.createdAt,
+    this.isResolved = false,
+    this.resolvedAt,
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+// CAMERA / AI MODELS
+// ─────────────────────────────────────────────────────────────
+class PlantSnapshot {
+  final String id;
+  final CaptureSlot slot;
+  final DateTime capturedAt;
+  final bool isManual;
+  final int dayNumber;
+
+  PlantSnapshot({
+    required this.id,
+    required this.slot,
+    required this.capturedAt,
+    required this.isManual,
+    required this.dayNumber,
+  });
+
+  String get slotLabel {
+    switch (slot) {
+      case CaptureSlot.morning:   return 'Morning';
+      case CaptureSlot.afternoon: return 'Afternoon';
+      case CaptureSlot.evening:   return 'Evening';
+    }
+  }
+
+  String get slotTime {
+    switch (slot) {
+      case CaptureSlot.morning:   return '6:00 AM';
+      case CaptureSlot.afternoon: return '2:00 PM';
+      case CaptureSlot.evening:   return '10:00 PM';
+    }
+  }
+}
+
+class DailyImageSet {
+  final DateTime date;
+  final int dayNumber;
+  final Map<CaptureSlot, PlantSnapshot> snapshots;
+  final AIGrowthReport? aiReport;
+
+  DailyImageSet({
+    required this.date,
+    required this.dayNumber,
+    required this.snapshots,
+    this.aiReport,
+  });
+
+  bool get isComplete => snapshots.length == 3;
+  int get captureCount => snapshots.length;
+
+  List<CaptureSlot> get missingSlots => CaptureSlot.values
+      .where((s) => !snapshots.containsKey(s))
+      .toList();
+}
+
+class AIGrowthReport {
+  final String id;
+  final DateTime date;
+  final int dayNumber;
+  final int growthScore;
+  final HealthStatus healthStatus;
+  final String summary;
+  final String recommendations;
+  final String leafAssessment;
+  final String colorAssessment;
+  final String stemAssessment;
+  final String scoreTrend; // '↑', '↓', '→'
+  final int? previousDayScore;
+  final DateTime generatedAt;
+
+  AIGrowthReport({
+    required this.id,
+    required this.date,
+    required this.dayNumber,
+    required this.growthScore,
+    required this.healthStatus,
+    required this.summary,
+    required this.recommendations,
+    required this.leafAssessment,
+    required this.colorAssessment,
+    required this.stemAssessment,
+    required this.scoreTrend,
+    this.previousDayScore,
+    required this.generatedAt,
+  });
+
+  String get healthLabel {
+    switch (healthStatus) {
+      case HealthStatus.healthy: return 'Healthy';
+      case HealthStatus.fair:    return 'Fair';
+      case HealthStatus.poor:    return 'Poor';
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// BACKUP MODEL
+// ─────────────────────────────────────────────────────────────
+class BackupRecord {
+  final String id;
+  final DateTime createdAt;
+  final int sensorReadingCount;
+  final int alertCount;
+  final int snapshotCount;
+  final String status; // 'success', 'failed'
+
+  BackupRecord({
+    required this.id,
+    required this.createdAt,
+    required this.sensorReadingCount,
+    required this.alertCount,
+    required this.snapshotCount,
+    required this.status,
   });
 }

@@ -5,13 +5,11 @@ import '../theme/app_theme.dart';
 class SensorCard extends StatelessWidget {
   final SensorReading reading;
   final VoidCallback? onTap;
-
   const SensorCard({super.key, required this.reading, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final color = statusColor(reading.status);
-
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -22,9 +20,9 @@ class SensorCard extends StatelessWidget {
         ),
         padding: const EdgeInsets.all(16),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header row
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -33,46 +31,25 @@ class SensorCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-
-            // Value
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(
-                  _formatValue(reading.value, reading.unit),
-                  style: const TextStyle(
-                    color: AppTheme.textPrimary,
-                    fontSize: 26,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -1,
-                  ),
-                ),
+                Text(_fmt(reading.value, reading.unit),
+                    style: const TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontSize: 26, fontWeight: FontWeight.w700, letterSpacing: -1)),
                 const SizedBox(width: 4),
                 Padding(
                   padding: const EdgeInsets.only(bottom: 4),
-                  child: Text(
-                    reading.unit,
-                    style: const TextStyle(
-                      color: AppTheme.textSecondary,
-                      fontSize: 13,
-                    ),
-                  ),
+                  child: Text(reading.unit,
+                      style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
                 ),
               ],
             ),
             const SizedBox(height: 4),
-
-            // Label
-            Text(
-              reading.label,
-              style: const TextStyle(
-                color: AppTheme.textSecondary,
-                fontSize: 13,
-              ),
-            ),
+            Text(reading.label,
+                style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
             const SizedBox(height: 12),
-
-            // Progress bar
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
@@ -82,21 +59,14 @@ class SensorCard extends StatelessWidget {
                 minHeight: 4,
               ),
             ),
-
             const SizedBox(height: 6),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  '${reading.min}${reading.unit}',
-                  style: const TextStyle(
-                    color: AppTheme.textMuted, fontSize: 11),
-                ),
-                Text(
-                  '${reading.max}${reading.unit}',
-                  style: const TextStyle(
-                    color: AppTheme.textMuted, fontSize: 11),
-                ),
+                Text('${reading.min}${reading.unit}',
+                    style: const TextStyle(color: AppTheme.textMuted, fontSize: 11)),
+                Text('${reading.max}${reading.unit}',
+                    style: const TextStyle(color: AppTheme.textMuted, fontSize: 11)),
               ],
             ),
           ],
@@ -105,7 +75,7 @@ class SensorCard extends StatelessWidget {
     );
   }
 
-  String _formatValue(double v, String unit) {
+  String _fmt(double v, String unit) {
     if (unit == 'lux') return v.round().toString();
     if (unit == 'pH' || unit == 'mS/cm') return v.toStringAsFixed(2);
     return v.toStringAsFixed(1);
@@ -120,17 +90,16 @@ class _SensorIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 36,
-      height: 36,
+      width: 36, height: 36,
       decoration: BoxDecoration(
         color: color.withOpacity(0.12),
         borderRadius: BorderRadius.circular(10),
       ),
-      child: Icon(_iconData(iconName), color: color, size: 18),
+      child: Icon(_icon(iconName), color: color, size: 18),
     );
   }
 
-  IconData _iconData(String name) {
+  IconData _icon(String name) {
     switch (name) {
       case 'thermostat': return Icons.thermostat;
       case 'water_drop': return Icons.water_drop;
@@ -157,15 +126,10 @@ class _StatusBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: color.withOpacity(0.3)),
       ),
-      child: Text(
-        statusLabel(status),
-        style: TextStyle(
-          color: color,
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.5,
-        ),
-      ),
+      child: Text(statusLabel(status),
+          style: TextStyle(
+              color: color, fontSize: 10,
+              fontWeight: FontWeight.w600, letterSpacing: 0.5)),
     );
   }
 }
