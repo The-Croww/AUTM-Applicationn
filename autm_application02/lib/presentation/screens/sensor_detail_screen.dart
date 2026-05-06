@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/sensor_data.dart';
+import '../../domain/models/sensor_data.dart';
 import '../providers/app_state.dart';
 import '../theme/app_theme.dart';
 
@@ -12,9 +12,10 @@ class SensorDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<AppState>(
       builder: (context, state, _) {
-        final reading = state.readings.firstWhere((r) => r.id == sensorId);
+        final reading = state.readings
+            .firstWhere((r) => r.id == sensorId);
         final history = state.historyFor(sensorId);
-        final color = statusColor(reading.status);
+        final color   = statusColor(reading.status);
 
         return Scaffold(
           backgroundColor: AppTheme.bg0,
@@ -38,6 +39,7 @@ class SensorDetailScreen extends StatelessWidget {
   }
 }
 
+// ── Big value card ───────────────────────────────────────────
 class _BigValueCard extends StatelessWidget {
   final SensorReading reading;
   final Color color;
@@ -58,10 +60,10 @@ class _BigValueCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'Current reading',
-                  style: const TextStyle(
-                    color: AppTheme.textSecondary, fontSize: 13),
+                  style: TextStyle(
+                      color: AppTheme.textSecondary, fontSize: 13),
                 ),
                 const SizedBox(height: 8),
                 Row(
@@ -70,26 +72,28 @@ class _BigValueCard extends StatelessWidget {
                     Text(
                       _fmt(reading.value, reading.unit),
                       style: TextStyle(
-                        color: color,
-                        fontSize: 48,
-                        fontWeight: FontWeight.w700,
+                        color:       color,
+                        fontSize:    48,
+                        fontWeight:  FontWeight.w700,
                         letterSpacing: -2,
                       ),
                     ),
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 8, left: 6),
+                      padding:
+                          const EdgeInsets.only(bottom: 8, left: 6),
                       child: Text(reading.unit,
                           style: const TextStyle(
-                              color: AppTheme.textSecondary, fontSize: 16)),
+                              color: AppTheme.textSecondary,
+                              fontSize: 16)),
                     ),
                   ],
                 ),
                 Text(
                   statusLabel(reading.status),
                   style: TextStyle(
-                    color: color,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                    color:         color,
+                    fontSize:      12,
+                    fontWeight:    FontWeight.w600,
                     letterSpacing: 1.2,
                   ),
                 ),
@@ -103,7 +107,8 @@ class _BigValueCard extends StatelessWidget {
               color: color.withOpacity(0.1),
               borderRadius: BorderRadius.circular(18),
             ),
-            child: Icon(_iconData(reading.icon), color: color, size: 30),
+            child:
+                Icon(_iconData(reading.icon), color: color, size: 30),
           ),
         ],
       ),
@@ -129,11 +134,15 @@ class _BigValueCard extends StatelessWidget {
   }
 }
 
+// ── Chart card ───────────────────────────────────────────────
 class _ChartCard extends StatelessWidget {
   final SensorHistory history;
   final Color color;
   final SensorReading reading;
-  const _ChartCard({required this.history, required this.color, required this.reading});
+  const _ChartCard(
+      {required this.history,
+      required this.color,
+      required this.reading});
 
   @override
   Widget build(BuildContext context) {
@@ -142,7 +151,8 @@ class _ChartCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.bg1,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border:
+            Border.all(color: Colors.white.withOpacity(0.06)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -157,9 +167,9 @@ class _ChartCard extends StatelessWidget {
             height: 140,
             child: CustomPaint(
               painter: _LinePainter(
-                points: history.points,
-                color: color,
-                warningLow: reading.warningLow,
+                points:      history.points,
+                color:       color,
+                warningLow:  reading.warningLow,
                 warningHigh: reading.warningHigh,
               ),
               child: Container(),
@@ -169,10 +179,16 @@ class _ChartCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(_timeLabel(history.points.isNotEmpty ? history.points.first.time : DateTime.now()),
-                  style: const TextStyle(color: AppTheme.textMuted, fontSize: 11)),
-              Text('Now',
-                  style: const TextStyle(color: AppTheme.textMuted, fontSize: 11)),
+              Text(
+                _timeLabel(history.points.isNotEmpty
+                    ? history.points.first.time
+                    : DateTime.now()),
+                style: const TextStyle(
+                    color: AppTheme.textMuted, fontSize: 11),
+              ),
+              const Text('Now',
+                  style: TextStyle(
+                      color: AppTheme.textMuted, fontSize: 11)),
             ],
           ),
         ],
@@ -187,6 +203,7 @@ class _ChartCard extends StatelessWidget {
   }
 }
 
+// ── Line painter ─────────────────────────────────────────────
 class _LinePainter extends CustomPainter {
   final List<SensorDataPoint> points;
   final Color color;
@@ -205,23 +222,30 @@ class _LinePainter extends CustomPainter {
     if (points.length < 2) return;
 
     final values = points.map((p) => p.value).toList();
-    final minV = values.reduce((a, b) => a < b ? a : b);
-    final maxV = values.reduce((a, b) => a > b ? a : b);
-    final range = (maxV - minV) == 0 ? 1.0 : maxV - minV;
-    final pad = range * 0.15;
+    final minV   = values.reduce((a, b) => a < b ? a : b);
+    final maxV   = values.reduce((a, b) => a > b ? a : b);
+    final range  = (maxV - minV) == 0 ? 1.0 : maxV - minV;
+    final pad    = range * 0.15;
 
     double nx(int i) => i / (points.length - 1) * size.width;
-    double ny(double v) => size.height - ((v - minV + pad) / (range + pad * 2)) * size.height;
+    double ny(double v) =>
+        size.height -
+        ((v - minV + pad) / (range + pad * 2)) * size.height;
 
     // Safe zone band
-    final bandPaint = Paint()
-      ..color = AppTheme.statusNormal.withOpacity(0.06)
-      ..style = PaintingStyle.fill;
-    final bandTop = ny(warningHigh.clamp(minV - pad, maxV + pad));
-    final bandBot = ny(warningLow.clamp(minV - pad, maxV + pad));
-    canvas.drawRect(Rect.fromLTRB(0, bandTop, size.width, bandBot), bandPaint);
+    canvas.drawRect(
+      Rect.fromLTRB(
+        0,
+        ny(warningHigh.clamp(minV - pad, maxV + pad)),
+        size.width,
+        ny(warningLow.clamp(minV - pad, maxV + pad)),
+      ),
+      Paint()
+        ..color = AppTheme.statusNormal.withOpacity(0.06)
+        ..style = PaintingStyle.fill,
+    );
 
-    // Gradient fill under line
+    // Gradient fill
     final fillPath = Path();
     fillPath.moveTo(nx(0), size.height);
     for (int i = 0; i < points.length; i++) {
@@ -230,34 +254,41 @@ class _LinePainter extends CustomPainter {
     fillPath.lineTo(nx(points.length - 1), size.height);
     fillPath.close();
 
-    final fillPaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [color.withOpacity(0.2), color.withOpacity(0.0)],
-      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
-    canvas.drawPath(fillPath, fillPaint);
+    canvas.drawPath(
+      fillPath,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            color.withOpacity(0.2),
+            color.withOpacity(0.0),
+          ],
+        ).createShader(
+            Rect.fromLTWH(0, 0, size.width, size.height)),
+    );
 
     // Line
-    final linePath = Path();
-    linePath.moveTo(nx(0), ny(points[0].value));
+    final linePath = Path()
+      ..moveTo(nx(0), ny(points[0].value));
     for (int i = 1; i < points.length; i++) {
       linePath.lineTo(nx(i), ny(points[i].value));
     }
-    final linePaint = Paint()
-      ..color = color
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    canvas.drawPath(linePath, linePaint);
+    canvas.drawPath(
+      linePath,
+      Paint()
+        ..color       = color
+        ..strokeWidth = 2
+        ..style       = PaintingStyle.stroke
+        ..strokeCap   = StrokeCap.round
+        ..strokeJoin  = StrokeJoin.round,
+    );
 
     // Last point dot
-    final dotPaint = Paint()..color = color;
     canvas.drawCircle(
       Offset(nx(points.length - 1), ny(points.last.value)),
       4,
-      dotPaint,
+      Paint()..color = color,
     );
   }
 
@@ -266,6 +297,7 @@ class _LinePainter extends CustomPainter {
       old.points != points || old.color != color;
 }
 
+// ── Threshold card ───────────────────────────────────────────
 class _ThresholdCard extends StatelessWidget {
   final SensorReading reading;
   const _ThresholdCard({required this.reading});
@@ -277,7 +309,8 @@ class _ThresholdCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.bg1,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border:
+            Border.all(color: Colors.white.withOpacity(0.06)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -298,7 +331,8 @@ class _ThresholdCard extends StatelessWidget {
               color: AppTheme.statusWarning),
           _ThresholdRow(
               label: 'Sensor range',
-              value: '${reading.min} – ${reading.max} ${reading.unit}',
+              value:
+                  '${reading.min} – ${reading.max} ${reading.unit}',
               color: AppTheme.textSecondary),
         ],
       ),
@@ -310,7 +344,10 @@ class _ThresholdRow extends StatelessWidget {
   final String label;
   final String value;
   final Color color;
-  const _ThresholdRow({required this.label, required this.value, required this.color});
+  const _ThresholdRow(
+      {required this.label,
+      required this.value,
+      required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -320,10 +357,13 @@ class _ThresholdRow extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label,
-              style: const TextStyle(color: AppTheme.textSecondary, fontSize: 14)),
+              style: const TextStyle(
+                  color: AppTheme.textSecondary, fontSize: 14)),
           Text(value,
               style: TextStyle(
-                  color: color, fontSize: 14, fontWeight: FontWeight.w500)),
+                  color: color,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500)),
         ],
       ),
     );

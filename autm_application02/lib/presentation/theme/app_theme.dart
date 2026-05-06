@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../models/sensor_data.dart';
+import '../../domain/models/sensor_data.dart';
 
 // ─────────────────────────────────────────────────────────────
 // AUTOMATO — MINIMALIST BRUTALIST AGRICULTURAL THEME

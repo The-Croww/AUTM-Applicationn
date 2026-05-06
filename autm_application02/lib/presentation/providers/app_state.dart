@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import '../models/sensor_data.dart';
-import '../services/mock_data_service.dart';
+import '../../domain/models/sensor_data.dart';
+import '../../services/mock_data_service.dart';
 
 class AppState extends ChangeNotifier {
   final _service = MockDataService();
@@ -18,6 +18,7 @@ class AppState extends ChangeNotifier {
   List<DeviceState>   get devices       => _devices;
   bool                get isConnected   => _isConnected;
   DateTime            get lastUpdated   => _lastUpdated;
+  String              get connectionLabel => isConnected ? 'LIVE' : 'OFFLINE';
   int get alertCount => activeAlerts.length;
 
   List<AlertRecord>   get allAlerts    => _service.allAlerts;

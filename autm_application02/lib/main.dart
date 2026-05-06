@@ -1,24 +1,34 @@
+// ═══════════════════════════════════════════════════════════════
+// main.dart — App entry point
+// ═══════════════════════════════════════════════════════════════
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'providers/app_state.dart';
-import 'theme/app_theme.dart';
-import 'screens/dashboard_screen.dart';
-import 'screens/camera_screen.dart';
-import 'screens/control_screen.dart';
-import 'screens/analytics_screen.dart';
-import 'screens/alerts_screen.dart';
+import 'presentation/theme/app_theme.dart';
+import 'presentation/providers/app_state.dart';
 
-void main() {
+import 'presentation/screens/dashboard_screen.dart';
+import 'presentation/screens/camera_screen.dart';
+import 'presentation/screens/control_screen.dart';
+import 'presentation/screens/analytics_screen.dart';
+import 'presentation/screens/alerts_screen.dart';
+
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // ── Future: initialize Firebase here ──────────────────────────
+  // await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.dark,
-    systemNavigationBarColor: AppTheme.bg0,
+    statusBarColor:                 Colors.transparent,
+    statusBarIconBrightness:        Brightness.dark,
+    systemNavigationBarColor:       AppTheme.bg0,
     systemNavigationBarIconBrightness: Brightness.dark,
   ));
+
   runApp(
     ChangeNotifierProvider(
       create: (_) => AppState(),
@@ -33,14 +43,15 @@ class AuTOMATOApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'AuTOMATO',
+      title:                  'AuTOMATO',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkTheme,
-      home: const HomeShell(),
+      theme:                  AppTheme.darkTheme,
+      home:                   const HomeShell(),
     );
   }
 }
 
+// ─────────────────────────────────────────────────────────────
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
   @override
@@ -49,6 +60,7 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   int _index = 0;
+  static const _titles = ['Dashboard', 'Camera', 'Alerts', 'Control'];
 
   Widget _screen(int i) {
     switch (i) {
@@ -63,32 +75,25 @@ class _HomeShellState extends State<HomeShell> {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
+    final alertCount = state.alertCount;
+
     return Scaffold(
       backgroundColor: AppTheme.bg0,
       appBar: AppBar(
-      title: Text(
-        'automato',
-        style: GoogleFonts.montserrat(
-          fontWeight: FontWeight.w800, // or FontWeight.w700 / w800
-          fontSize: 28,
-          letterSpacing: -1,
-          color: AppTheme.olive,
-        ),
-      ),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(height: 1, color: AppTheme.divider),
+          title: Text(
+          'automato',
+          style: GoogleFonts.sora(
+            fontSize: 28,
+            fontWeight: FontWeight.w800,
+            color: AppTheme.olive,
+            letterSpacing: -1,
+          ),
         ),
         actions: [
-          // Analytics icon in AppBar (swapped from notifications)
           IconButton(
             icon: const Icon(Icons.bar_chart_outlined, color: AppTheme.inkMid),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const AnalyticsScreen()),
-              );
-            },
+            onPressed: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const AnalyticsScreen())),
           ),
           const SizedBox(width: 4),
         ],
@@ -102,100 +107,90 @@ class _HomeShellState extends State<HomeShell> {
           border: Border(top: BorderSide(color: AppTheme.divider, width: 1)),
         ),
         child: BottomNavigationBar(
-          currentIndex: _index,
-          onTap: (i) => setState(() => _index = i),
-          type: BottomNavigationBarType.fixed,
-          showSelectedLabels: true,
+          currentIndex:         _index,
+          onTap:                (i) => setState(() => _index = i),
+          type:                 BottomNavigationBarType.fixed,
+          showSelectedLabels:   true,
           showUnselectedLabels: true,
-          selectedItemColor: AppTheme.olive,
-          unselectedItemColor: AppTheme.inkMid,
-          selectedLabelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+          selectedItemColor:    AppTheme.olive,
+          unselectedItemColor:  AppTheme.inkMid,
+          backgroundColor:      AppTheme.bg0,
+          elevation:            0,
+          selectedLabelStyle:   const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
           unselectedLabelStyle: const TextStyle(fontSize: 11),
-          backgroundColor: AppTheme.bg0,
-          elevation: 0,
           items: [
             const BottomNavigationBarItem(
-              icon: Icon(Icons.dashboard_outlined),
+              icon:       Icon(Icons.dashboard_outlined),
               activeIcon: Icon(Icons.dashboard),
-              label: 'Dashboard',
+              label:      'Dashboard',
             ),
             const BottomNavigationBarItem(
-              icon: Icon(Icons.camera_alt_outlined),
+              icon:       Icon(Icons.camera_alt_outlined),
               activeIcon: Icon(Icons.camera_alt),
-              label: 'Camera',
+              label:      'Camera',
             ),
-            // Notifications in bottom nav (swapped from analytics) with badge
-        BottomNavigationBarItem(
-          icon: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              const Icon(Icons.notifications_outlined),
-              if (state.alertCount > 0)
-                Positioned(
-                  right: -6,
-                  top: -6,
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
-                    decoration: BoxDecoration(
-                      color: AppTheme.statusAlert,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppTheme.bg0, width: 1.5),
+            // ── Alerts tab with live badge ───────────────────────
+            BottomNavigationBarItem(
+              label: 'Alerts',
+              icon: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  const Icon(Icons.notifications_outlined),
+                  if (alertCount > 0)
+                    Positioned(
+                      right: -6, top: -6,
+                      child: _Badge(count: alertCount),
                     ),
-                    child: Center(
-                      child: Text(
-                        state.alertCount > 99 ? '99+' : '${state.alertCount}',
-                        style: const TextStyle(
-                          color: AppTheme.bg0,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w900,
-                          height: 1,
-                        ),
-                      ),
+                ],
+              ),
+              activeIcon: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Icon(Icons.notifications,
+                      color: alertCount > 0 ? AppTheme.statusAlert : null),
+                  if (alertCount > 0)
+                    Positioned(
+                      right: -6, top: -6,
+                      child: _Badge(count: alertCount),
                     ),
-                  ),
-                ),
-            ],
-          ),
-          activeIcon: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              const Icon(Icons.notifications, color: AppTheme.statusAlert),
-              if (state.alertCount > 0)
-                Positioned(
-                  right: -6,
-                  top: -6,
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
-                    decoration: BoxDecoration(
-                      color: AppTheme.statusAlert,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppTheme.bg0, width: 1.5),
-                    ),
-                    child: Center(
-                      child: Text(
-                        state.alertCount > 99 ? '99+' : '${state.alertCount}',
-                        style: const TextStyle(
-                          color: AppTheme.bg0,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w900,
-                          height: 1,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          label: 'Alerts',
-        ),
+                ],
+              ),
+            ),
             const BottomNavigationBarItem(
-              icon: Icon(Icons.tune_outlined),
+              icon:       Icon(Icons.tune_outlined),
               activeIcon: Icon(Icons.tune),
-              label: 'Control',
+              label:      'Control',
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Badge extends StatelessWidget {
+  final int count;
+  const _Badge({required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding:     const EdgeInsets.all(2),
+      constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+      decoration:  BoxDecoration(
+        color:  AppTheme.statusAlert,
+        shape:  BoxShape.circle,
+        border: Border.all(color: AppTheme.bg0, width: 1.5),
+      ),
+      child: Center(
+        child: Text(
+          count > 99 ? '99+' : '$count',
+          style: const TextStyle(
+            color:      AppTheme.bg0,
+            fontSize:   9,
+            fontWeight: FontWeight.w900,
+            height:     1,
+          ),
         ),
       ),
     );

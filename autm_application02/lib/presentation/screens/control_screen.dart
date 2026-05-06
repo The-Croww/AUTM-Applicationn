@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/sensor_data.dart';
+import '../../domain/models/sensor_data.dart';
 import '../providers/app_state.dart';
 import '../theme/app_theme.dart';
 
@@ -21,7 +21,8 @@ class ControlScreen extends StatelessWidget {
                   child: _DeviceCard(
                     device: d,
                     onStatusChanged: (status, isOn) =>
-                        state.setDeviceStatus(d.id, status, isOn),
+                        state.setDeviceStatus(
+                            d.id, status, isOn),
                   ),
                 )),
             const SizedBox(height: 24),
@@ -29,7 +30,9 @@ class ControlScreen extends StatelessWidget {
             const SizedBox(height: 12),
             ...state.automationRules.map((rule) => Padding(
                   padding: const EdgeInsets.only(bottom: 10),
-                  child: _RuleCard(rule: rule, readings: state.readings),
+                  child: _RuleCard(
+                      rule: rule,
+                      readings: state.readings),
                 )),
           ],
         );
@@ -49,15 +52,17 @@ class ControlScreen extends StatelessWidget {
   }
 }
 
+// ── Device card ──────────────────────────────────────────────
 class _DeviceCard extends StatelessWidget {
   final DeviceState device;
   final void Function(DeviceStatus, bool) onStatusChanged;
 
-  const _DeviceCard({required this.device, required this.onStatusChanged});
+  const _DeviceCard(
+      {required this.device, required this.onStatusChanged});
 
   @override
   Widget build(BuildContext context) {
-    final isOn = device.isOn;
+    final isOn        = device.isOn;
     final activeColor = isOn ? AppTheme.textPrimary : AppTheme.textMuted;
 
     return Container(
@@ -66,7 +71,9 @@ class _DeviceCard extends StatelessWidget {
         color: AppTheme.bg1,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isOn ? AppTheme.textSecondary.withOpacity(0.3) : AppTheme.divider,
+          color: isOn
+              ? AppTheme.textSecondary.withOpacity(0.3)
+              : AppTheme.divider,
         ),
       ),
       child: Column(
@@ -80,7 +87,8 @@ class _DeviceCard extends StatelessWidget {
                   color: activeColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(_iconData(device.icon), color: activeColor, size: 20),
+                child: Icon(_iconData(device.icon),
+                    color: activeColor, size: 20),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -95,12 +103,14 @@ class _DeviceCard extends StatelessWidget {
                     if (device.triggerReason != null)
                       Text(device.triggerReason!,
                           style: const TextStyle(
-                              color: AppTheme.textMuted, fontSize: 12)),
+                              color: AppTheme.textMuted,
+                              fontSize: 12)),
                   ],
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: activeColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(6),
@@ -121,23 +131,26 @@ class _DeviceCard extends StatelessWidget {
           Row(
             children: [
               _ModeChip(
-                label: 'AUTO',
+                label:    'AUTO',
                 selected: device.status == DeviceStatus.auto,
-                onTap: () => onStatusChanged(DeviceStatus.auto, isOn),
+                onTap: () =>
+                    onStatusChanged(DeviceStatus.auto, isOn),
               ),
               const SizedBox(width: 8),
               _ModeChip(
-                label: 'FORCE ON',
+                label:    'FORCE ON',
                 selected: device.status == DeviceStatus.manualOn,
-                color: AppTheme.textPrimary,
-                onTap: () => onStatusChanged(DeviceStatus.manualOn, true),
+                color:    AppTheme.textPrimary,
+                onTap: () =>
+                    onStatusChanged(DeviceStatus.manualOn, true),
               ),
               const SizedBox(width: 8),
               _ModeChip(
-                label: 'FORCE OFF',
+                label:    'FORCE OFF',
                 selected: device.status == DeviceStatus.manualOff,
-                color: AppTheme.statusAlert,
-                onTap: () => onStatusChanged(DeviceStatus.manualOff, false),
+                color:    AppTheme.statusAlert,
+                onTap: () =>
+                    onStatusChanged(DeviceStatus.manualOff, false),
               ),
             ],
           ),
@@ -145,11 +158,13 @@ class _DeviceCard extends StatelessWidget {
             const SizedBox(height: 10),
             Row(
               children: [
-                const Icon(Icons.access_time, size: 11, color: AppTheme.textMuted),
+                const Icon(Icons.access_time,
+                    size: 11, color: AppTheme.textMuted),
                 const SizedBox(width: 4),
                 Text(
                   'Last triggered: ${_timeAgo(device.lastTriggered!)}',
-                  style: const TextStyle(color: AppTheme.textMuted, fontSize: 11),
+                  style: const TextStyle(
+                      color: AppTheme.textMuted, fontSize: 11),
                 ),
               ],
             ),
@@ -171,12 +186,13 @@ class _DeviceCard extends StatelessWidget {
 
   String _timeAgo(DateTime t) {
     final diff = DateTime.now().difference(t);
-    if (diff.inMinutes < 1) return 'just now';
+    if (diff.inMinutes < 1)  return 'just now';
     if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
     return '${diff.inHours}h ago';
   }
 }
 
+// ── Mode chip ────────────────────────────────────────────────
 class _ModeChip extends StatelessWidget {
   final String label;
   final bool selected;
@@ -196,20 +212,23 @@ class _ModeChip extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        padding: const EdgeInsets.symmetric(
+            horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
           color: selected ? c.withOpacity(0.15) : AppTheme.bg3,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: selected ? c.withOpacity(0.4) : Colors.transparent,
+            color: selected
+                ? c.withOpacity(0.4)
+                : Colors.transparent,
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: selected ? c : AppTheme.textMuted,
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
+            color:       selected ? c : AppTheme.textMuted,
+            fontSize:    11,
+            fontWeight:  FontWeight.w600,
             letterSpacing: 0.4,
           ),
         ),
@@ -218,16 +237,21 @@ class _ModeChip extends StatelessWidget {
   }
 }
 
+// ── Automation rule card ─────────────────────────────────────
 class _RuleCard extends StatelessWidget {
   final AutomationRule rule;
   final List<SensorReading> readings;
 
-  const _RuleCard({required this.rule, required this.readings});
+  const _RuleCard(
+      {required this.rule, required this.readings});
 
   @override
   Widget build(BuildContext context) {
-    final sensor = readings.where((r) => r.id == rule.sensorId).firstOrNull;
-    final isTriggered = sensor != null && sensor.status != SensorStatus.normal;
+    final sensor = readings
+        .where((r) => r.id == rule.sensorId)
+        .firstOrNull;
+    final isTriggered =
+        sensor != null && sensor.status != SensorStatus.normal;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -244,14 +268,18 @@ class _RuleCard extends StatelessWidget {
             margin: const EdgeInsets.only(right: 12),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: isTriggered ? AppTheme.statusWarning : AppTheme.textSecondary,
+              color: isTriggered
+                  ? AppTheme.statusWarning
+                  : AppTheme.textSecondary,
             ),
           ),
           Expanded(
             child: Text(
               rule.actionDescription,
               style: const TextStyle(
-                  color: AppTheme.textSecondary, fontSize: 13, height: 1.4),
+                  color: AppTheme.textSecondary,
+                  fontSize: 13,
+                  height: 1.4),
             ),
           ),
         ],

@@ -1,5 +1,5 @@
 import 'dart:math';
-import '../models/sensor_data.dart';
+import '../domain/models/sensor_data.dart';
 
 class MockDataService {
   static final MockDataService _instance = MockDataService._internal();

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/sensor_data.dart';
+import '../../domain/models/sensor_data.dart';
 import '../providers/app_state.dart';
 import '../theme/app_theme.dart';
 
@@ -30,16 +30,16 @@ class _CameraScreenState extends State<CameraScreen>
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Tab bar
         Container(
           color: AppTheme.bg0,
           child: TabBar(
             controller: _tabs,
-            labelColor: AppTheme.textPrimary,
+            labelColor:           AppTheme.textPrimary,
             unselectedLabelColor: AppTheme.textMuted,
-            indicatorColor: AppTheme.textPrimary,
-            indicatorSize: TabBarIndicatorSize.label,
-            labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+            indicatorColor:       AppTheme.textPrimary,
+            indicatorSize:        TabBarIndicatorSize.label,
+            labelStyle: const TextStyle(
+                fontWeight: FontWeight.w600, fontSize: 14),
             tabs: const [
               Tab(text: "Today's Captures"),
               Tab(text: 'Growth Timeline'),
@@ -67,7 +67,7 @@ class _TodayCapturesTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    final today = state.todayImageSet;
+    final today  = state.todayImageSet;
 
     return ListView(
       padding: const EdgeInsets.all(20),
@@ -100,16 +100,25 @@ class _TodayCapturesTab extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.schedule, color: AppTheme.textSecondary, size: 18),
+          const Icon(Icons.schedule,
+              color: AppTheme.textSecondary, size: 18),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Scheduled captures: 6AM • 2PM • 10PM',
-                    style: TextStyle(color: AppTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w500)),
-                Text(state.nextCaptureLabel(),
-                    style: const TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+                const Text(
+                  'Scheduled captures: 6AM • 2PM • 10PM',
+                  style: TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500),
+                ),
+                Text(
+                  state.nextCaptureLabel(),
+                  style: const TextStyle(
+                      color: AppTheme.textMuted, fontSize: 12),
+                ),
               ],
             ),
           ),
@@ -122,9 +131,13 @@ class _TodayCapturesTab extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Day ${today.dayNumber} — ${_dateLabel(today.date)}',
-            style: const TextStyle(
-                color: AppTheme.textPrimary, fontSize: 15, fontWeight: FontWeight.w600)),
+        Text(
+          'Day ${today.dayNumber} — ${_dateLabel(today.date)}',
+          style: const TextStyle(
+              color: AppTheme.textPrimary,
+              fontSize: 15,
+              fontWeight: FontWeight.w600),
+        ),
         const SizedBox(height: 12),
         Row(
           children: CaptureSlot.values.map((slot) {
@@ -132,7 +145,8 @@ class _TodayCapturesTab extends StatelessWidget {
             return Expanded(
               child: Padding(
                 padding: const EdgeInsets.only(right: 8),
-                child: _CaptureThumbnail(slot: slot, snapshot: snap),
+                child: _CaptureThumbnail(
+                    slot: slot, snapshot: snap),
               ),
             );
           }).toList(),
@@ -156,18 +170,25 @@ class _TodayCapturesTab extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: color.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: color.withOpacity(0.3)),
+                  border:
+                      Border.all(color: color.withOpacity(0.3)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.psychology_outlined, color: color, size: 14),
+                    Icon(Icons.psychology_outlined,
+                        color: color, size: 14),
                     const SizedBox(width: 5),
-                    Text('AI Analysis', style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600)),
+                    Text('AI Analysis',
+                        style: TextStyle(
+                            color: color,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600)),
                   ],
                 ),
               ),
@@ -177,17 +198,19 @@ class _TodayCapturesTab extends StatelessWidget {
               const SizedBox(width: 6),
               Text('${report.growthScore}%',
                   style: const TextStyle(
-                      color: AppTheme.textPrimary, fontSize: 20, fontWeight: FontWeight.w700)),
+                      color: AppTheme.textPrimary,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700)),
             ],
           ),
           const SizedBox(height: 12),
-          // Growth score bar
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
-              value: report.growthScore / 100,
-              backgroundColor: AppTheme.bg3,
-              valueColor: AlwaysStoppedAnimation<Color>(color),
+              value:            report.growthScore / 100,
+              backgroundColor:  AppTheme.bg3,
+              valueColor:
+                  AlwaysStoppedAnimation<Color>(color),
               minHeight: 6,
             ),
           ),
@@ -197,21 +220,25 @@ class _TodayCapturesTab extends StatelessWidget {
               _AIChip('Health', report.healthLabel, color),
               const SizedBox(width: 8),
               if (report.previousDayScore != null)
-                _AIChip('vs yesterday',
-                    '${report.previousDayScore}% → ${report.growthScore}%',
-                    AppTheme.textSecondary),
+                _AIChip(
+                  'vs yesterday',
+                  '${report.previousDayScore}% → ${report.growthScore}%',
+                  AppTheme.textSecondary,
+                ),
             ],
           ),
           const SizedBox(height: 14),
           Text(report.summary,
               style: const TextStyle(
-                  color: AppTheme.textSecondary, fontSize: 13, height: 1.5)),
+                  color: AppTheme.textSecondary,
+                  fontSize: 13,
+                  height: 1.5)),
           const SizedBox(height: 12),
           const Divider(),
           const SizedBox(height: 10),
           _aiDetail('Leaves', report.leafAssessment),
-          _aiDetail('Color', report.colorAssessment),
-          _aiDetail('Stem', report.stemAssessment),
+          _aiDetail('Color',  report.colorAssessment),
+          _aiDetail('Stem',   report.stemAssessment),
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(12),
@@ -228,7 +255,9 @@ class _TodayCapturesTab extends StatelessWidget {
                 Expanded(
                   child: Text(report.recommendations,
                       style: const TextStyle(
-                          color: AppTheme.textSecondary, fontSize: 12, height: 1.4)),
+                          color: AppTheme.textSecondary,
+                          fontSize: 12,
+                          height: 1.4)),
                 ),
               ],
             ),
@@ -240,7 +269,8 @@ class _TodayCapturesTab extends StatelessWidget {
 
   Widget _AIChip(String label, String value, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(
+          horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: color.withOpacity(0.08),
         borderRadius: BorderRadius.circular(8),
@@ -248,10 +278,16 @@ class _TodayCapturesTab extends StatelessWidget {
       ),
       child: RichText(
         text: TextSpan(children: [
-          TextSpan(text: '$label: ',
-              style: const TextStyle(color: AppTheme.textMuted, fontSize: 11)),
-          TextSpan(text: value,
-              style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600)),
+          TextSpan(
+              text: '$label: ',
+              style: const TextStyle(
+                  color: AppTheme.textMuted, fontSize: 11)),
+          TextSpan(
+              text: value,
+              style: TextStyle(
+                  color: color,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600)),
         ]),
       ),
     );
@@ -267,11 +303,15 @@ class _TodayCapturesTab extends StatelessWidget {
             width: 52,
             child: Text(label,
                 style: const TextStyle(
-                    color: AppTheme.textMuted, fontSize: 12, fontWeight: FontWeight.w500)),
+                    color: AppTheme.textMuted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500)),
           ),
           Expanded(
             child: Text(text,
-                style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+                style: const TextStyle(
+                    color: AppTheme.textSecondary,
+                    fontSize: 12)),
           ),
         ],
       ),
@@ -296,13 +336,16 @@ class _TodayCapturesTab extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text('AI Analysis Pending',
-                    style: TextStyle(color: AppTheme.textPrimary,
-                        fontSize: 14, fontWeight: FontWeight.w500)),
+                    style: TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500)),
                 Text(
                   today.isComplete
                       ? 'Analysis is being generated…'
                       : '${3 - today.captureCount} capture${3 - today.captureCount > 1 ? "s" : ""} remaining today',
-                  style: const TextStyle(color: AppTheme.textMuted, fontSize: 12),
+                  style: const TextStyle(
+                      color: AppTheme.textMuted, fontSize: 12),
                 ),
               ],
             ),
@@ -312,7 +355,8 @@ class _TodayCapturesTab extends StatelessWidget {
     );
   }
 
-  Widget _buildManualCapture(BuildContext context, AppState state) {
+  Widget _buildManualCapture(
+      BuildContext context, AppState state) {
     return GestureDetector(
       onTap: () {
         state.triggerManualCapture();
@@ -334,11 +378,14 @@ class _TodayCapturesTab extends StatelessWidget {
         child: const Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.camera_alt_outlined, color: AppTheme.textSecondary, size: 18),
+            Icon(Icons.camera_alt_outlined,
+                color: AppTheme.textSecondary, size: 18),
             SizedBox(width: 8),
             Text('Manual Capture',
-                style: TextStyle(color: AppTheme.textSecondary,
-                    fontSize: 14, fontWeight: FontWeight.w500)),
+                style: TextStyle(
+                    color: AppTheme.textSecondary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500)),
           ],
         ),
       ),
@@ -350,14 +397,19 @@ class _TodayCapturesTab extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('Manual captures (${state.manualSnapshots.length})',
-            style: const TextStyle(color: AppTheme.textPrimary,
-                fontSize: 14, fontWeight: FontWeight.w600)),
+            style: const TextStyle(
+                color: AppTheme.textPrimary,
+                fontSize: 14,
+                fontWeight: FontWeight.w600)),
         const SizedBox(height: 10),
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3, crossAxisSpacing: 8, mainAxisSpacing: 8),
+          gridDelegate:
+              const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount:  3,
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing:  8),
           itemCount: state.manualSnapshots.length,
           itemBuilder: (_, i) {
             final snap = state.manualSnapshots[i];
@@ -374,7 +426,9 @@ class _TodayCapturesTab extends StatelessWidget {
                       color: AppTheme.textMuted, size: 24),
                   const SizedBox(height: 4),
                   Text(_timeLabel(snap.capturedAt),
-                      style: const TextStyle(color: AppTheme.textMuted, fontSize: 9)),
+                      style: const TextStyle(
+                          color: AppTheme.textMuted,
+                          fontSize: 9)),
                 ],
               ),
             );
@@ -386,13 +440,17 @@ class _TodayCapturesTab extends StatelessWidget {
 
   String _dateLabel(DateTime d) =>
       '${_months[d.month - 1]} ${d.day}, ${d.year}';
+
   String _timeLabel(DateTime t) {
     final h = t.hour.toString().padLeft(2, '0');
     final m = t.minute.toString().padLeft(2, '0');
     return '$h:$m';
   }
-  static const _months = ['Jan','Feb','Mar','Apr','May','Jun',
-      'Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  static const _months = [
+    'Jan','Feb','Mar','Apr','May','Jun',
+    'Jul','Aug','Sep','Oct','Nov','Dec'
+  ];
 }
 
 // ── GROWTH TIMELINE ───────────────────────────────────────────
@@ -401,7 +459,7 @@ class _GrowthTimelineTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final state = context.watch<AppState>();
+    final state   = context.watch<AppState>();
     final timeline = state.growthTimeline;
 
     return ListView.separated(
@@ -412,8 +470,12 @@ class _GrowthTimelineTab extends StatelessWidget {
         final set = timeline[i];
         return _TimelineEntry(
           imageSet: set,
-          onTap: () => Navigator.push(context,
-              MaterialPageRoute(builder: (_) => _DayDetailScreen(imageSet: set))),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (_) =>
+                    _DayDetailScreen(imageSet: set)),
+          ),
         );
       },
     );
@@ -423,12 +485,15 @@ class _GrowthTimelineTab extends StatelessWidget {
 class _TimelineEntry extends StatelessWidget {
   final DailyImageSet imageSet;
   final VoidCallback onTap;
-  const _TimelineEntry({required this.imageSet, required this.onTap});
+  const _TimelineEntry(
+      {required this.imageSet, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final report = imageSet.aiReport;
-    final color = report != null ? healthColor(report.healthStatus) : AppTheme.textMuted;
+    final color  = report != null
+        ? healthColor(report.healthStatus)
+        : AppTheme.textMuted;
 
     return GestureDetector(
       onTap: onTap,
@@ -445,40 +510,52 @@ class _TimelineEntry extends StatelessWidget {
             Row(
               children: [
                 Text('Day ${imageSet.dayNumber}',
-                    style: const TextStyle(color: AppTheme.textPrimary,
-                        fontSize: 14, fontWeight: FontWeight.w600)),
+                    style: const TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600)),
                 const SizedBox(width: 8),
                 Text(_dateLabel(imageSet.date),
-                    style: const TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+                    style: const TextStyle(
+                        color: AppTheme.textMuted,
+                        fontSize: 12)),
                 const Spacer(),
                 if (report != null) ...[
                   Text(report.scoreTrend,
                       style: const TextStyle(fontSize: 16)),
                   const SizedBox(width: 4),
                   Text('${report.growthScore}%',
-                      style: TextStyle(color: color, fontSize: 14,
+                      style: TextStyle(
+                          color: color,
+                          fontSize: 14,
                           fontWeight: FontWeight.w600)),
                 ] else
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: AppTheme.bg3, borderRadius: BorderRadius.circular(6)),
-                    child: const Text('Partial', style: TextStyle(
-                        color: AppTheme.textMuted, fontSize: 11)),
+                        color: AppTheme.bg3,
+                        borderRadius:
+                            BorderRadius.circular(6)),
+                    child: const Text('Partial',
+                        style: TextStyle(
+                            color: AppTheme.textMuted,
+                            fontSize: 11)),
                   ),
                 const SizedBox(width: 8),
-                const Icon(Icons.chevron_right, color: AppTheme.textMuted, size: 16),
+                const Icon(Icons.chevron_right,
+                    color: AppTheme.textMuted, size: 16),
               ],
             ),
             const SizedBox(height: 10),
-            // 3 thumbnail slots
             Row(
               children: CaptureSlot.values.map((slot) {
                 final snap = imageSet.snapshots[slot];
                 return Expanded(
                   child: Padding(
                     padding: const EdgeInsets.only(right: 6),
-                    child: _MiniThumbnail(slot: slot, captured: snap != null),
+                    child: _MiniThumbnail(
+                        slot: slot, captured: snap != null),
                   ),
                 );
               }).toList(),
@@ -488,9 +565,10 @@ class _TimelineEntry extends StatelessWidget {
               ClipRRect(
                 borderRadius: BorderRadius.circular(3),
                 child: LinearProgressIndicator(
-                  value: report.growthScore / 100,
+                  value:           report.growthScore / 100,
                   backgroundColor: AppTheme.bg3,
-                  valueColor: AlwaysStoppedAnimation<Color>(color),
+                  valueColor:
+                      AlwaysStoppedAnimation<Color>(color),
                   minHeight: 3,
                 ),
               ),
@@ -503,14 +581,18 @@ class _TimelineEntry extends StatelessWidget {
 
   String _dateLabel(DateTime d) =>
       '${_months[d.month - 1]} ${d.day}';
-  static const _months = ['Jan','Feb','Mar','Apr','May','Jun',
-      'Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  static const _months = [
+    'Jan','Feb','Mar','Apr','May','Jun',
+    'Jul','Aug','Sep','Oct','Nov','Dec'
+  ];
 }
 
 class _MiniThumbnail extends StatelessWidget {
   final CaptureSlot slot;
   final bool captured;
-  const _MiniThumbnail({required this.slot, required this.captured});
+  const _MiniThumbnail(
+      {required this.slot, required this.captured});
 
   @override
   Widget build(BuildContext context) {
@@ -520,18 +602,33 @@ class _MiniThumbnail extends StatelessWidget {
         color: captured ? AppTheme.bg2 : AppTheme.bg0,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: captured ? AppTheme.textSecondary.withOpacity(0.2) : AppTheme.divider),
+          color: captured
+              ? AppTheme.textSecondary.withOpacity(0.2)
+              : AppTheme.divider,
+        ),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(captured ? Icons.image_outlined : Icons.crop_free,
-              color: captured ? AppTheme.textSecondary : AppTheme.textMuted, size: 18),
+          Icon(
+            captured
+                ? Icons.image_outlined
+                : Icons.crop_free,
+            color: captured
+                ? AppTheme.textSecondary
+                : AppTheme.textMuted,
+            size: 18,
+          ),
           const SizedBox(height: 2),
-          Text(_slotLabel(slot),
-              style: TextStyle(
-                  color: captured ? AppTheme.textMuted : AppTheme.textMuted.withOpacity(0.5),
-                  fontSize: 9)),
+          Text(
+            _slotLabel(slot),
+            style: TextStyle(
+              color: captured
+                  ? AppTheme.textMuted
+                  : AppTheme.textMuted.withOpacity(0.5),
+              fontSize: 9,
+            ),
+          ),
         ],
       ),
     );
@@ -546,11 +643,12 @@ class _MiniThumbnail extends StatelessWidget {
   }
 }
 
-// ── CAPTURE THUMBNAIL (today) ──────────────────────────────────
+// ── CAPTURE THUMBNAIL (today) ─────────────────────────────────
 class _CaptureThumbnail extends StatelessWidget {
   final CaptureSlot slot;
   final PlantSnapshot? snapshot;
-  const _CaptureThumbnail({required this.slot, this.snapshot});
+  const _CaptureThumbnail(
+      {required this.slot, this.snapshot});
 
   @override
   Widget build(BuildContext context) {
@@ -563,30 +661,49 @@ class _CaptureThumbnail extends StatelessWidget {
             color: captured ? AppTheme.bg2 : AppTheme.bg1,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: captured ? AppTheme.textSecondary.withOpacity(0.25) : AppTheme.divider),
+              color: captured
+                  ? AppTheme.textSecondary.withOpacity(0.25)
+                  : AppTheme.divider,
+            ),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(captured ? Icons.eco_outlined : Icons.camera_outlined,
-                  color: captured ? AppTheme.statusNormal : AppTheme.textMuted, size: 28),
+              Icon(
+                captured
+                    ? Icons.eco_outlined
+                    : Icons.camera_outlined,
+                color: captured
+                    ? AppTheme.statusNormal
+                    : AppTheme.textMuted,
+                size: 28,
+              ),
               if (captured)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: Container(
-                    width: 6, height: 6,
+                    width: 6,
+                    height: 6,
                     decoration: const BoxDecoration(
-                      shape: BoxShape.circle, color: AppTheme.statusNormal),
+                      shape: BoxShape.circle,
+                      color: AppTheme.statusNormal,
+                    ),
                   ),
                 ),
             ],
           ),
         ),
         const SizedBox(height: 6),
-        Text(snapshot?.slotLabel ?? _slotLabel,
-            style: const TextStyle(color: AppTheme.textSecondary, fontSize: 11)),
-        Text(snapshot?.slotTime ?? '--:--',
-            style: const TextStyle(color: AppTheme.textMuted, fontSize: 10)),
+        Text(
+          snapshot?.slotLabel ?? _slotLabel,
+          style: const TextStyle(
+              color: AppTheme.textSecondary, fontSize: 11),
+        ),
+        Text(
+          snapshot?.slotTime ?? '--:--',
+          style: const TextStyle(
+              color: AppTheme.textMuted, fontSize: 10),
+        ),
       ],
     );
   }
@@ -611,32 +728,35 @@ class _DayDetailScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppTheme.bg0,
       appBar: AppBar(
-        title: Text('Day ${imageSet.dayNumber} — ${_dateLabel(imageSet.date)}'),
+        title: Text(
+            'Day ${imageSet.dayNumber} — ${_dateLabel(imageSet.date)}'),
       ),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          // Images
           Row(
             children: CaptureSlot.values.map((slot) {
               final snap = imageSet.snapshots[slot];
               return Expanded(
                 child: Padding(
                   padding: const EdgeInsets.only(right: 8),
-                  child: _CaptureThumbnail(slot: slot, snapshot: snap),
+                  child: _CaptureThumbnail(
+                      slot: slot, snapshot: snap),
                 ),
               );
             }).toList(),
           ),
           const SizedBox(height: 20),
-          if (report != null) ...[
-            _buildFullReport(report),
-          ] else ...[
+          if (report != null)
+            _buildFullReport(report)
+          else
             const Center(
-              child: Text('AI report not yet available for this day.',
-                  style: TextStyle(color: AppTheme.textMuted, fontSize: 13)),
+              child: Text(
+                'AI report not yet available for this day.',
+                style: TextStyle(
+                    color: AppTheme.textMuted, fontSize: 13),
+              ),
             ),
-          ],
         ],
       ),
     );
@@ -653,20 +773,26 @@ class _DayDetailScreen extends StatelessWidget {
                 color: AppTheme.textSecondary, size: 18),
             const SizedBox(width: 8),
             const Text('AI Growth Report',
-                style: TextStyle(color: AppTheme.textPrimary,
-                    fontSize: 16, fontWeight: FontWeight.w600)),
+                style: TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600)),
             const Spacer(),
             Text('${report.growthScore}%',
-                style: TextStyle(color: color, fontSize: 22, fontWeight: FontWeight.w700)),
+                style: TextStyle(
+                    color: color,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700)),
             const SizedBox(width: 4),
-            Text(report.scoreTrend, style: const TextStyle(fontSize: 18)),
+            Text(report.scoreTrend,
+                style: const TextStyle(fontSize: 18)),
           ],
         ),
         const SizedBox(height: 12),
         ClipRRect(
           borderRadius: BorderRadius.circular(4),
           child: LinearProgressIndicator(
-            value: report.growthScore / 100,
+            value:           report.growthScore / 100,
             backgroundColor: AppTheme.bg3,
             valueColor: AlwaysStoppedAnimation<Color>(color),
             minHeight: 8,
@@ -675,30 +801,39 @@ class _DayDetailScreen extends StatelessWidget {
         const SizedBox(height: 16),
         _row('Health Status', report.healthLabel, color),
         if (report.previousDayScore != null)
-          _row('vs Previous Day',
-              '${report.previousDayScore}% → ${report.growthScore}%',
-              AppTheme.textSecondary),
+          _row(
+            'vs Previous Day',
+            '${report.previousDayScore}% → ${report.growthScore}%',
+            AppTheme.textSecondary,
+          ),
         const SizedBox(height: 16),
         const Text('Summary',
-            style: TextStyle(color: AppTheme.textPrimary,
-                fontSize: 14, fontWeight: FontWeight.w600)),
+            style: TextStyle(
+                color: AppTheme.textPrimary,
+                fontSize: 14,
+                fontWeight: FontWeight.w600)),
         const SizedBox(height: 6),
         Text(report.summary,
             style: const TextStyle(
-                color: AppTheme.textSecondary, fontSize: 13, height: 1.6)),
+                color: AppTheme.textSecondary,
+                fontSize: 13,
+                height: 1.6)),
         const SizedBox(height: 16),
         const Text('Plant Assessment',
-            style: TextStyle(color: AppTheme.textPrimary,
-                fontSize: 14, fontWeight: FontWeight.w600)),
+            style: TextStyle(
+                color: AppTheme.textPrimary,
+                fontSize: 14,
+                fontWeight: FontWeight.w600)),
         const SizedBox(height: 8),
         _detail('Leaves', report.leafAssessment),
-        _detail('Color', report.colorAssessment),
-        _detail('Stem', report.stemAssessment),
+        _detail('Color',  report.colorAssessment),
+        _detail('Stem',   report.stemAssessment),
         const SizedBox(height: 16),
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: AppTheme.bg2, borderRadius: BorderRadius.circular(12)),
+              color: AppTheme.bg2,
+              borderRadius: BorderRadius.circular(12)),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -710,12 +845,16 @@ class _DayDetailScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text('Recommendations',
-                        style: TextStyle(color: AppTheme.textPrimary,
-                            fontSize: 13, fontWeight: FontWeight.w600)),
+                        style: TextStyle(
+                            color: AppTheme.textPrimary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600)),
                     const SizedBox(height: 4),
                     Text(report.recommendations,
                         style: const TextStyle(
-                            color: AppTheme.textSecondary, fontSize: 13, height: 1.5)),
+                            color: AppTheme.textSecondary,
+                            fontSize: 13,
+                            height: 1.5)),
                   ],
                 ),
               ),
@@ -732,8 +871,14 @@ class _DayDetailScreen extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
-          Text(value, style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w500)),
+          Text(label,
+              style: const TextStyle(
+                  color: AppTheme.textSecondary, fontSize: 13)),
+          Text(value,
+              style: TextStyle(
+                  color: color,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500)),
         ],
       ),
     );
@@ -748,13 +893,17 @@ class _DayDetailScreen extends StatelessWidget {
           SizedBox(
             width: 52,
             child: Text(label,
-                style: const TextStyle(color: AppTheme.textMuted,
-                    fontSize: 12, fontWeight: FontWeight.w500)),
+                style: const TextStyle(
+                    color: AppTheme.textMuted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500)),
           ),
           Expanded(
             child: Text(text,
                 style: const TextStyle(
-                    color: AppTheme.textSecondary, fontSize: 12, height: 1.4)),
+                    color: AppTheme.textSecondary,
+                    fontSize: 12,
+                    height: 1.4)),
           ),
         ],
       ),
@@ -762,8 +911,10 @@ class _DayDetailScreen extends StatelessWidget {
   }
 
   String _dateLabel(DateTime d) {
-    const months = ['Jan','Feb','Mar','Apr','May','Jun',
-        'Jul','Aug','Sep','Oct','Nov','Dec'];
+    const months = [
+      'Jan','Feb','Mar','Apr','May','Jun',
+      'Jul','Aug','Sep','Oct','Nov','Dec'
+    ];
     return '${months[d.month - 1]} ${d.day}, ${d.year}';
   }
 }

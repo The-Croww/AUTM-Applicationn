@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/sensor_data.dart';
+import '../../domain/models/sensor_data.dart';
 import '../providers/app_state.dart';
 import '../theme/app_theme.dart';
 
@@ -50,9 +50,14 @@ class AlertsScreen extends StatelessWidget {
           children: [
             Icon(Icons.check_circle_outline, color: AppTheme.statusNormal, size: 48),
             SizedBox(height: 12),
-            Text('No alerts', style: TextStyle(color: AppTheme.textPrimary, fontSize: 17, fontWeight: FontWeight.w600)),
+            Text('No alerts',
+                style: TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600)),
             SizedBox(height: 4),
-            Text('All sensors are within normal range.', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+            Text('All sensors are within normal range.',
+                style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
           ],
         ),
       );
@@ -72,21 +77,26 @@ class _AlertTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.bg1,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: active
-            ? AppTheme.statusAlert.withOpacity(0.25)
-            : AppTheme.divider),
+        border: Border.all(
+            color: active
+                ? AppTheme.statusAlert.withOpacity(0.25)
+                : AppTheme.divider),
       ),
       child: Row(
         children: [
           Container(
-            width: 38, height: 38,
+            width: 38,
+            height: 38,
             decoration: BoxDecoration(
               color: color.withOpacity(0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
-              active ? Icons.warning_amber_rounded : Icons.check_circle_outline,
-              color: color, size: 20),
+                active
+                    ? Icons.warning_amber_rounded
+                    : Icons.check_circle_outline,
+                color: color,
+                size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -96,26 +106,33 @@ class _AlertTile extends StatelessWidget {
                 Text(alert.sensorLabel,
                     style: const TextStyle(
                         color: AppTheme.textPrimary,
-                        fontSize: 14, fontWeight: FontWeight.w600)),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600)),
                 const SizedBox(height: 2),
                 Text(
                   '${alert.value.toStringAsFixed(2)} ${alert.unit}  •  ${_timeAgo(alert.createdAt)}',
-                  style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                  style: const TextStyle(
+                      color: AppTheme.textSecondary, fontSize: 12),
                 ),
                 if (alert.isResolved && alert.resolvedAt != null)
                   Text('Resolved ${_timeAgo(alert.resolvedAt!)}',
-                      style: const TextStyle(color: AppTheme.statusNormal, fontSize: 11)),
+                      style: const TextStyle(
+                          color: AppTheme.statusNormal, fontSize: 11)),
               ],
             ),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
             decoration: BoxDecoration(
               color: color.withOpacity(0.1),
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(active ? 'ACTIVE' : 'RESOLVED',
-                style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w700)),
+                style: TextStyle(
+                    color: color,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -124,9 +141,9 @@ class _AlertTile extends StatelessWidget {
 
   String _timeAgo(DateTime t) {
     final d = DateTime.now().difference(t);
-    if (d.inSeconds < 60)  return '${d.inSeconds}s ago';
-    if (d.inMinutes < 60)  return '${d.inMinutes}m ago';
-    if (d.inHours < 24)    return '${d.inHours}h ago';
+    if (d.inSeconds < 60) return '${d.inSeconds}s ago';
+    if (d.inMinutes < 60) return '${d.inMinutes}m ago';
+    if (d.inHours < 24)   return '${d.inHours}h ago';
     return '${d.inDays}d ago';
   }
 }

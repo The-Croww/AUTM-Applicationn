@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/sensor_data.dart';
+import '../../domain/models/sensor_data.dart';
 import '../providers/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/sensor_card.dart';
@@ -12,21 +12,18 @@ class DashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<AppState>(
-      builder: (context, state, _) {
-        return CustomScrollView(
-          slivers: [
-            _buildStatusRow(state),
-            if (state.alertCount > 0) _buildAlertBanner(context, state),
-            _buildSensorGrid(context, state),
-            const SliverToBoxAdapter(child: SizedBox(height: 80)),
-          ],
-        );
-      },
+    final state = context.watch<AppState>();
+
+    return CustomScrollView(
+      slivers: [
+        _buildStatusRow(state),
+        if (state.alertCount > 0) _buildAlertBanner(context, state),
+        _buildSensorGrid(context, state),
+        const SliverToBoxAdapter(child: SizedBox(height: 80)),
+      ],
     );
   }
 
-  // ── Status row ─────────────────────────────────────────────
   Widget _buildStatusRow(AppState state) {
     return SliverToBoxAdapter(
       child: Padding(
@@ -42,7 +39,7 @@ class DashboardScreen extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              state.isConnected ? 'LIVE' : 'OFFLINE',
+              state.connectionLabel,
               style: TextStyle(
                 color: state.isConnected ? AppTheme.textSecondary : AppTheme.statusAlert,
                 fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 1.2,
@@ -57,9 +54,11 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  // ── Alert banner ────────────────────────────────────────────
   Widget _buildAlertBanner(BuildContext context, AppState state) {
-    final alerts = state.readings.where((r) => r.status == SensorStatus.alert).toList();
+    final alertSensors = state.readings
+        .where((r) => r.status == SensorStatus.alert)
+        .toList();
+    
     return SliverToBoxAdapter(
       child: GestureDetector(
         onTap: () => Navigator.push(context,
@@ -79,8 +78,8 @@ class DashboardScreen extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  '${alerts.length} sensor${alerts.length > 1 ? 's' : ''} out of range: '
-                  '${alerts.map((a) => a.label).join(', ')}',
+                  '${alertSensors.length} sensor${alertSensors.length > 1 ? 's' : ''} out of range: '
+                  '${alertSensors.map((a) => a.label).join(', ')}',
                   style: const TextStyle(
                       color: AppTheme.statusAlert, fontSize: 13, fontWeight: FontWeight.w500),
                 ),
@@ -93,7 +92,6 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  // ── Sensor grid ─────────────────────────────────────────────
   Widget _buildSensorGrid(BuildContext context, AppState state) {
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
