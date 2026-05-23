@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1055114694932",
+    "project_id": "automato-c5536",
+    "storage_bucket": "automato-c5536.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1055114694932:android:28b11db533403570dab201",
+        "android_client_info": {
+          "package_name": "com.example.autm_application02"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyASHZyCogvMUZszE7j49bBrK2f7zLSjPg4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -12,8 +12,11 @@ class AnalyticsScreen extends StatefulWidget {
   State<AnalyticsScreen> createState() => _AnalyticsScreenState();
 }
 
+enum _TimeRange { today, week, month }
+
 class _AnalyticsScreenState extends State<AnalyticsScreen> {
-  String _selectedSensor = 'temperature';
+  String     _selectedSensor = 'temperature';
+  _TimeRange _selectedRange  = _TimeRange.today;
 
   static const _sensorOptions = [
     ('temperature', 'Temp'),
@@ -23,6 +26,32 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     ('ph',          'pH'),
     ('ec',          'EC'),
   ];
+
+  static const _rangeOptions = [
+    (_TimeRange.today, 'Today'),
+    (_TimeRange.week,  'Week'),
+    (_TimeRange.month, 'Month'),
+  ];
+
+  /// Filter history points by the selected time range.
+  List<SensorDataPoint> _filterPoints(List<SensorDataPoint> all) {
+    if (all.isEmpty) return all;
+    final now = DateTime.now();
+    final cutoff = switch (_selectedRange) {
+      _TimeRange.today => now.subtract(const Duration(hours: 24)),
+      _TimeRange.week  => now.subtract(const Duration(days: 7)),
+      _TimeRange.month => now.subtract(const Duration(days: 30)),
+    };
+    final filtered = all.where((p) => p.time.isAfter(cutoff)).toList();
+    // Always show something — fall back to all points if filter is too narrow
+    return filtered.isNotEmpty ? filtered : all;
+  }
+
+  String get _rangeLabel => switch (_selectedRange) {
+    _TimeRange.today => '24h trend',
+    _TimeRange.week  => '7-day trend',
+    _TimeRange.month => '30-day trend',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -53,17 +82,20 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         builder: (context, state, _) {
           final reading = state.readings
               .firstWhere((r) => r.id == _selectedSensor);
-          final history = state.historyFor(_selectedSensor);
-          final color   = statusColor(reading.status);
+          final history      = state.historyFor(_selectedSensor);
+          final filtered     = _filterPoints(history.points);
+          final color        = statusColor(reading.status);
 
           return ListView(
             padding: const EdgeInsets.all(20),
             children: [
+              _buildTimeRangePicker(),
+              const SizedBox(height: 12),
               _buildSensorPicker(),
               const SizedBox(height: 20),
-              _buildStatsRow(reading, history),
+              _buildStatsRow(reading, filtered),
               const SizedBox(height: 16),
-              _buildChartCard(reading, history, color),
+              _buildChartCard(reading, filtered, color),
               const SizedBox(height: 16),
               _buildAllSensorsTable(state),
             ],
@@ -73,6 +105,53 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     );
   }
 
+  // ── Time range picker ──────────────────────────────────────
+  Widget _buildTimeRangePicker() {
+    return Container(
+      height: 38,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: AppTheme.bg2,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.borderLight),
+      ),
+      child: Row(
+        children: _rangeOptions.map((option) {
+          final range    = option.$1;
+          final label    = option.$2;
+          final selected = range == _selectedRange;
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _selectedRange = range),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                decoration: BoxDecoration(
+                  color: selected ? AppTheme.bg0 : Colors.transparent,
+                  borderRadius: BorderRadius.circular(7),
+                  border: selected
+                      ? Border.all(color: AppTheme.borderLight)
+                      : null,
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: selected ? AppTheme.ink : AppTheme.inkFaint,
+                    fontSize: 13,
+                    fontWeight:
+                        selected ? FontWeight.w700 : FontWeight.w500,
+                    letterSpacing: 0.1,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  // ── Sensor picker (unchanged) ──────────────────────────────
   Widget _buildSensorPicker() {
     return SizedBox(
       height: 36,
@@ -87,11 +166,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             onTap: () => setState(() => _selectedSensor = id),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color:
-                    selected ? AppTheme.bg3 : AppTheme.bg1,
+                color: selected ? AppTheme.bg3 : AppTheme.bg1,
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
                   color: selected
@@ -106,8 +184,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       ? AppTheme.textPrimary
                       : AppTheme.textSecondary,
                   fontSize: 13,
-                  fontWeight:
-                      selected ? FontWeight.w600 : FontWeight.normal,
+                  fontWeight: selected
+                      ? FontWeight.w600
+                      : FontWeight.normal,
                 ),
               ),
             ),
@@ -117,42 +196,46 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     );
   }
 
-  Widget _buildStatsRow(SensorReading reading, SensorHistory history) {
-    final values = history.points.map((p) => p.value).toList();
-    final avg = values.isEmpty
+  // ── Stats row — now uses filtered points ───────────────────
+  Widget _buildStatsRow(
+      SensorReading reading, List<SensorDataPoint> points) {
+    final values = points.map((p) => p.value).toList();
+    final avg    = values.isEmpty
         ? 0.0
         : values.reduce((a, b) => a + b) / values.length;
-    final min = values.isEmpty
+    final min    = values.isEmpty
         ? 0.0
         : values.reduce((a, b) => a < b ? a : b);
-    final max = values.isEmpty
+    final max    = values.isEmpty
         ? 0.0
         : values.reduce((a, b) => a > b ? a : b);
 
     return Row(
       children: [
-        Expanded(
-            child: _StatCard(
-                label: 'Current',
-                value: _fmt(reading.value, reading.unit))),
+        Expanded(child: _StatCard(
+            label: 'Current',
+            value: _fmt(reading.value, reading.unit))),
         const SizedBox(width: 10),
-        Expanded(
-            child: _StatCard(
-                label: 'Average', value: _fmt(avg, reading.unit))),
+        Expanded(child: _StatCard(
+            label: 'Average',
+            value: _fmt(avg, reading.unit))),
         const SizedBox(width: 10),
-        Expanded(
-            child:
-                _StatCard(label: 'Min', value: _fmt(min, reading.unit))),
+        Expanded(child: _StatCard(
+            label: 'Min',
+            value: _fmt(min, reading.unit))),
         const SizedBox(width: 10),
-        Expanded(
-            child:
-                _StatCard(label: 'Max', value: _fmt(max, reading.unit))),
+        Expanded(child: _StatCard(
+            label: 'Max',
+            value: _fmt(max, reading.unit))),
       ],
     );
   }
 
+  // ── Chart card — label now reflects selected range ─────────
   Widget _buildChartCard(
-      SensorReading reading, SensorHistory history, Color color) {
+      SensorReading reading,
+      List<SensorDataPoint> points,
+      Color color) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -171,9 +254,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       color: AppTheme.textPrimary,
                       fontSize: 15,
                       fontWeight: FontWeight.w600)),
-              const Text('6h trend',
-                  style:
-                      TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+              Text(_rangeLabel,
+                  style: const TextStyle(
+                      color: AppTheme.textMuted, fontSize: 12)),
             ],
           ),
           const SizedBox(height: 16),
@@ -181,10 +264,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             height: 180,
             child: CustomPaint(
               painter: _AnalyticsChartPainter(
-                points:       history.points,
-                color:        color,
-                warningLow:   reading.warningLow,
-                warningHigh:  reading.warningHigh,
+                points:      points,
+                color:       color,
+                warningLow:  reading.warningLow,
+                warningHigh: reading.warningHigh,
               ),
               child: Container(),
             ),
@@ -194,9 +277,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                history.points.isNotEmpty
-                    ? _timeFmt(history.points.first.time)
-                    : '',
+                points.isNotEmpty ? _timeFmt(points.first.time) : '',
                 style: const TextStyle(
                     color: AppTheme.textMuted, fontSize: 11),
               ),
@@ -210,6 +291,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     );
   }
 
+  // ── All sensors table (unchanged) ──────────────────────────
   Widget _buildAllSensorsTable(AppState state) {
     return Container(
       decoration: BoxDecoration(
@@ -229,8 +311,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     fontWeight: FontWeight.w600)),
           ),
           const Divider(height: 1),
-          ...state.readings
-              .map((r) => _SensorTableRow(reading: r)),
+          ...state.readings.map((r) => _SensorTableRow(reading: r)),
         ],
       ),
     );
@@ -243,9 +324,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   }
 
   String _timeFmt(DateTime t) {
-    final h = t.hour.toString().padLeft(2, '0');
-    final m = t.minute.toString().padLeft(2, '0');
-    return '$h:$m';
+    if (_selectedRange == _TimeRange.today) {
+      final h = t.hour.toString().padLeft(2, '0');
+      final m = t.minute.toString().padLeft(2, '0');
+      return '$h:$m';
+    }
+    // Week / month: show date instead
+    final months = ['Jan','Feb','Mar','Apr','May','Jun',
+                    'Jul','Aug','Sep','Oct','Nov','Dec'];
+    return '${months[t.month - 1]} ${t.day}';
   }
 }
 
@@ -258,8 +345,7 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
       decoration: BoxDecoration(
         color: AppTheme.bg2,
         borderRadius: BorderRadius.circular(12),
@@ -290,17 +376,14 @@ class _SensorTableRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = statusColor(reading.status);
     return Container(
-      padding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: const BoxDecoration(
-        border:
-            Border(bottom: BorderSide(color: AppTheme.divider)),
+        border: Border(bottom: BorderSide(color: AppTheme.divider)),
       ),
       child: Row(
         children: [
           Container(
-            width: 6,
-            height: 6,
+            width: 6, height: 6,
             margin: const EdgeInsets.only(right: 10),
             decoration:
                 BoxDecoration(shape: BoxShape.circle, color: color),
@@ -328,7 +411,7 @@ class _SensorTableRow extends StatelessWidget {
   }
 }
 
-// ── Chart painter ────────────────────────────────────────────
+// ── Chart painter (unchanged) ─────────────────────────────────
 class _AnalyticsChartPainter extends CustomPainter {
   final List<SensorDataPoint> points;
   final Color color;
@@ -352,15 +435,12 @@ class _AnalyticsChartPainter extends CustomPainter {
     final range  = (maxV - minV) == 0 ? 1.0 : maxV - minV;
     final pad    = range * 0.2;
 
-    double nx(int i) =>
-        i / (points.length - 1) * size.width;
+    double nx(int i) => i / (points.length - 1) * size.width;
     double ny(double v) =>
         size.height -
         ((v - minV + pad) / (range + pad * 2)) * size.height;
 
-    final safeZonePaint = Paint()
-      ..color = AppTheme.statusNormal.withOpacity(0.05)
-      ..style = PaintingStyle.fill;
+    // Safe zone band
     canvas.drawRect(
       Rect.fromLTRB(
         0,
@@ -368,18 +448,21 @@ class _AnalyticsChartPainter extends CustomPainter {
         size.width,
         ny(warningLow.clamp(minV - pad, maxV + pad)),
       ),
-      safeZonePaint,
+      Paint()
+        ..color = AppTheme.statusNormal.withOpacity(0.05)
+        ..style = PaintingStyle.fill,
     );
 
+    // Guide lines
     final guidePaint = Paint()
-      ..color = Colors.white.withOpacity(0.04)
+      ..color       = AppTheme.divider.withOpacity(0.5)
       ..strokeWidth = 1;
     for (int i = 1; i <= 4; i++) {
       final y = size.height * i / 4;
-      canvas.drawLine(
-          Offset(0, y), Offset(size.width, y), guidePaint);
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), guidePaint);
     }
 
+    // Gradient fill
     final fillPath = Path()..moveTo(nx(0), size.height);
     for (int i = 0; i < points.length; i++) {
       fillPath.lineTo(nx(i), ny(points[i].value));
@@ -392,15 +475,12 @@ class _AnalyticsChartPainter extends CustomPainter {
       Paint()
         ..shader = LinearGradient(
           begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            color.withOpacity(0.25),
-            color.withOpacity(0.0)
-          ],
-        ).createShader(
-            Rect.fromLTWH(0, 0, size.width, size.height)),
+          end:   Alignment.bottomCenter,
+          colors: [color.withOpacity(0.25), color.withOpacity(0.0)],
+        ).createShader(Rect.fromLTWH(0, 0, size.width, size.height)),
     );
 
+    // Line
     final linePath = Path()
       ..moveTo(nx(0), ny(points[0].value));
     for (int i = 1; i < points.length; i++) {
@@ -419,5 +499,5 @@ class _AnalyticsChartPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_AnalyticsChartPainter old) =>
-      old.points != points;
+      old.points != points || old.color != color;
 }

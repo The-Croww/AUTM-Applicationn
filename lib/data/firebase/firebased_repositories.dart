@@ -20,6 +20,8 @@
 import 'dart:async';
 import '../../domain/models/models.dart';
 import '../../domain/repositories/repositories.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 // ── Firebase RTDB structure this implementation expects: ───────
 //
@@ -95,7 +97,7 @@ class FirebaseSensorRepository implements SensorRepository {
   }
 
   @override
-  Future<SensorHistory> getHistory(String sensorId) async {
+  SensorHistory historyFor(String sensorId) {
     // PRODUCTION IMPLEMENTATION:
     //
     // final now = DateTime.now().millisecondsSinceEpoch;
@@ -147,68 +149,13 @@ class FirebaseDeviceRepository implements DeviceRepository {
   }
 
   @override
-  Stream<DeviceCommand> sendCommand({
-    required String deviceId,
-    required DeviceStatus mode,
-    required bool targetState,
-    required String issuedBy,
-  }) async* {
-    // PRODUCTION IMPLEMENTATION:
-    //
-    // final db = FirebaseDatabase.instance;
-    // final cmdRef = db.ref('/commands/$deviceId');
-    //
-    // final cmd = DeviceCommand(
-    //   deviceId:     deviceId,
-    //   mode:         mode,
-    //   targetState:  targetState,
-    //   issuedBy:     issuedBy,
-    //   issuedAt:     DateTime.now(),
-    //   commandStatus: CommandStatus.pending,
-    // );
-    //
-    // // 1. Write command to Firebase
-    // await cmdRef.set(cmd.toJson());
-    // yield cmd;  // emit pending
-    //
-    // // 2. Wait for ESP32 acknowledgment (with 10s timeout)
-    // final completer = Completer<DeviceCommand>();
-    // late StreamSubscription sub;
-    //
-    // sub = cmdRef.onValue.listen((event) {
-    //   final data = Map<String, dynamic>.from(event.snapshot.value as Map);
-    //   final updated = DeviceCommand.fromJson(deviceId, data);
-    //   if (!updated.isPending && !completer.isCompleted) {
-    //     completer.complete(updated);
-    //     sub.cancel();
-    //   }
-    // });
-    //
-    // final acked = await completer.future.timeout(
-    //   const Duration(seconds: 10),
-    //   onTimeout: () {
-    //     sub.cancel();
-    //     return cmd.copyWith(commandStatus: CommandStatus.timedOut);
-    //   },
-    // );
-    //
-    // yield acked;
-
-    throw UnimplementedError('Add firebase_database package first.');
-  }
+  List<DeviceState> get currentDevices => [];
 
   @override
-  Future<List<AutomationRule>> getAutomationRules() async {
-    // PRODUCTION IMPLEMENTATION:
-    //
-    // final snap = await FirebaseDatabase.instance
-    //     .ref('/config/automationRules')
-    //     .get();
-    // final data = Map<String, dynamic>.from(snap.value as Map? ?? {});
-    // return data.values
-    //     .map((e) => AutomationRule.fromJson(Map<String, dynamic>.from(e as Map)))
-    //     .toList();
+  List<AutomationRule> get automationRules => [];
 
+  @override
+  void setDeviceStatus(String deviceId, DeviceStatus status, bool isOn) {
     throw UnimplementedError('Add firebase_database package first.');
   }
 
@@ -257,7 +204,7 @@ class FirebaseAlertRepository implements AlertRepository {
 class FirebaseSystemRepository implements SystemRepository {
 
   @override
-  Stream<SystemStatus> get systemStream {
+  Stream<SystemStatus> get statusStream {
     // PRODUCTION IMPLEMENTATION:
     //
     // // Watch Firebase's own connection indicator
@@ -287,6 +234,55 @@ class FirebaseSystemRepository implements SystemRepository {
   @override
   Future<List<BackupRecord>> getBackups() async {
     throw UnimplementedError('Add firebase_database package first.');
+  }
+
+  @override
+  void dispose() {}
+}
+
+// ─────────────────────────────────────────────────────────────
+// Auth Repository — Email/Password + Google Sign-In
+// ─────────────────────────────────────────────────────────────
+class FirebaseAuthRepository implements AuthRepository {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
+
+  /// Returns the currently signed-in user, or null.
+  User? get currentUser => _auth.currentUser;
+
+  /// Stream that emits on every auth state change.
+  Stream<User?> get authStateChanges => _auth.authStateChanges();
+
+  /// Email + password sign-in.
+  @override
+  Future<bool> signIn(String email, String password) async {
+    await _auth.signInWithEmailAndPassword(
+      email: email.trim(),
+      password: password,
+    );
+    return true; // throws FirebaseAuthException on failure
+  }
+
+  /// Google Sign-In.
+  Future<bool> signInWithGoogle() async {
+    final googleUser = await _googleSignIn.signIn();
+    if (googleUser == null) return false; // user cancelled
+
+    final googleAuth = await googleUser.authentication;
+    final credential = GoogleAuthProvider.credential(
+      accessToken: googleAuth.accessToken,
+      idToken:     googleAuth.idToken,
+    );
+    await _auth.signInWithCredential(credential);
+    return true;
+  }
+
+  /// Sign out from both Firebase and Google.
+  Future<void> signOut() async {
+    await Future.wait([
+      _auth.signOut(),
+      _googleSignIn.signOut(),
+    ]);
   }
 
   @override

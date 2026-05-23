@@ -14,6 +14,8 @@ abstract class SensorRepository {
 
   /// Snapshot of the most recent history window for [sensorId].
   SensorHistory historyFor(String sensorId);
+
+  void dispose();
 }
 
 // ── Device / Actuator ────────────────────────────────────────
@@ -29,18 +31,33 @@ abstract class DeviceRepository {
 
   /// Override a device's control mode.
   void setDeviceStatus(String deviceId, DeviceStatus status, bool isOn);
+
+  void dispose();
 }
 
 // ── Alerts ───────────────────────────────────────────────────
 abstract class AlertRepository {
   /// Emits the full alert list (active + resolved) on any change.
   Stream<List<AlertRecord>> get alertStream;
+
+  /// Resolve an alert by id.
+  Future<void> resolveAlert(String alertId);
+
+  void dispose();
 }
 
 // ── System status ────────────────────────────────────────────
 abstract class SystemRepository {
   /// Emits connection-status updates.
   Stream<SystemStatus> get statusStream;
+
+  /// Create a new backup record.
+  Future<BackupRecord> createBackup();
+
+  /// Fetch all existing backup records.
+  Future<List<BackupRecord>> getBackups();
+
+  void dispose();
 }
 
 // ── Camera / Growth tracking ─────────────────────────────────
@@ -61,7 +78,18 @@ abstract class CameraRepository {
   String nextCaptureLabel();
 
   /// Trigger an immediate out-of-schedule capture.
-  void triggerManualCapture();
+  PlantSnapshot triggerManualCapture();
+
+  void dispose();
+}
+
+// ── Auth ─────────────────────────────────────────────────────
+abstract class AuthRepository {
+  /// Attempt sign-in with [email] and [password].
+  /// Returns `true` on success, throws on failure.
+  Future<bool> signIn(String email, String password);
+
+  void dispose();
 }
 
 // SystemStatus is defined in ../models/models.dart
