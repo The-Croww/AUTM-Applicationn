@@ -5,7 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 import 'data/mock/mock_repositories.dart';
-import 'data/firebase/firebased_repositories.dart';   // ← FirebaseAuthRepository
+import 'data/firebase/firebase_repositories.dart';   // ← FirebaseAuthRepository
 import 'presentation/theme/app_theme.dart';
 import 'presentation/providers/app_state.dart';
 import 'services/notification_service.dart';

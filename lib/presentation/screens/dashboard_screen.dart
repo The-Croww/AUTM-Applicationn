@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../domain/models/sensor_data.dart';
-import '../providers/app_state.dart';
-import '../theme/app_theme.dart';
-import '../widgets/sensor_card.dart';
-import 'sensor_detail_screen.dart';
-import 'alerts_screen.dart';
+import 'package:automato/domain/models/sensor_data.dart';
+import 'package:automato/presentation/providers/app_state.dart';
+import 'package:automato/presentation/theme/app_theme.dart';
+import 'package:automato/presentation/widgets/sensor_card.dart';
+import 'package:automato/presentation/screens/sensor_detail_screen.dart';
+import 'package:automato/presentation/screens/alerts_screen.dart';
+
+// ─────────────────────────────────────────────────────────────
+// DASHBOARD — PREMIUM FLOATING MINIMALIST (PICTURE MATCH EDITION)
+// ─────────────────────────────────────────────────────────────
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -13,203 +17,336 @@ class DashboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-
-    return CustomScrollView(
-      slivers: [
-        _buildStatusRow(state),
-        _buildGreenhouseHealthCard(context, state),
-        if (state.alertCount > 0) _buildAlertBanner(context, state),
-        _buildSensorGrid(context, state),
-        const SliverToBoxAdapter(child: SizedBox(height: 80)),
-      ],
-    );
-  }
-
-  Widget _buildStatusRow(AppState state) {
-    return SliverToBoxAdapter(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-        child: Row(
-          children: [
-            Container(
-              width: 8, height: 8,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: state.isConnected ? AppTheme.textPrimary : AppTheme.statusAlert,
-              ),
+    return Scaffold(
+      backgroundColor: const Color(0xFFF4F2EE), // Exact warm concrete paper tone from mockup
+      body: SafeArea(
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            buildGreenhouseHealthStatus(state),
+            if (state.alertCount > 0)
+              buildAlertBanner(context, state),
+            buildSensorsSectionHeader(),
+            buildSensorCards(context, state),
+            const SliverToBoxAdapter(
+              child: SizedBox(height: 80),
             ),
-            const SizedBox(width: 8),
-            Text(
-              state.connectionLabel,
-              style: TextStyle(
-                color: state.isConnected ? AppTheme.textSecondary : AppTheme.statusAlert,
-                fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 1.2,
-              ),
-            ),
-            const Spacer(),
-            Text(_fmt(state.lastUpdated),
-                style: const TextStyle(color: AppTheme.textMuted, fontSize: 12)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildAlertBanner(BuildContext context, AppState state) {
-    final alertSensors = state.readings
-        .where((r) => r.status == SensorStatus.alert)
-        .toList();
-    
+  // ═══════════════════════════════════════════════════════════
+  // GREENHOUSE HEALTH STATUS — Showcase Dashboard Grid
+  // Exact replication of the layout and styling in the attached image
+  // ═══════════════════════════════════════════════════════════
+  Widget buildGreenhouseHealthStatus(AppState state) {
+    final total = state.readings.length;
+    if (total == 0) return const SliverToBoxAdapter(child: SizedBox.shrink());
+
+    final alertCount = state.readings.where((r) => r.status == SensorStatus.alert).length;
+    final warningCount = state.readings.where((r) => r.status == SensorStatus.warning).length;
+    final normalCount = state.readings.where((r) => r.status == SensorStatus.normal).length;
+
+    final score = ((normalCount * 1.0 + warningCount * 0.5) / total).clamp(0.0, 1.0);
+    final percent = (score * 100).round();
+
     return SliverToBoxAdapter(
-      child: GestureDetector(
-        onTap: () => Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const AlertsScreen())),
-        child: Container(
-          margin: const EdgeInsets.fromLTRB(20, 0, 20, 14),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-          decoration: BoxDecoration(
-            color: AppTheme.statusAlert.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.statusAlert.withOpacity(0.3)),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.warning_amber_rounded,
-                  color: AppTheme.statusAlert, size: 18),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  '${alertSensors.length} sensor${alertSensors.length > 1 ? 's' : ''} out of range: '
-                  '${alertSensors.map((a) => a.label).join(', ')}',
-                  style: const TextStyle(
-                      color: AppTheme.statusAlert, fontSize: 13, fontWeight: FontWeight.w500),
-                ),
-              ),
-              const Icon(Icons.chevron_right, color: AppTheme.statusAlert, size: 16),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSensorGrid(BuildContext context, AppState state) {
-    return SliverPadding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      sliver: SliverGrid(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2, crossAxisSpacing: 12,
-          mainAxisSpacing: 12, childAspectRatio: 0.75,
-        ),
-        delegate: SliverChildBuilderDelegate(
-          (context, i) {
-            final r = state.readings[i];
-            return SensorCard(
-              reading: r,
-              onTap: () => Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => SensorDetailScreen(sensorId: r.id))),
-            );
-          },
-          childCount: state.readings.length,
-        ),
-      ),
-    );
-  }
-
-  String _fmt(DateTime t) {
-    final h = t.hour.toString().padLeft(2, '0');
-    final m = t.minute.toString().padLeft(2, '0');
-    final s = t.second.toString().padLeft(2, '0');
-    return 'Updated $h:$m:$s';
-  }
-
-  Widget _buildGreenhouseHealthCard(BuildContext context, AppState state) {
-  final total = state.readings.length;
-  if (total == 0) return const SliverToBoxAdapter(child: SizedBox.shrink());
-
-  final alertCount   = state.readings.where((r) => r.status == SensorStatus.alert).length;
-  final warningCount = state.readings.where((r) => r.status == SensorStatus.warning).length;
-  final normalCount  = state.readings.where((r) => r.status == SensorStatus.normal).length;
-
-  // Weighted score: normal=1.0, warning=0.5, alert=0.0
-  final score   = ((normalCount * 1.0 + warningCount * 0.5) / total).clamp(0.0, 1.0);
-  final percent = (score * 100).round();
-
-  final statusColor = score >= 0.8
-      ? AppTheme.statusNormal
-      : score >= 0.5
-          ? AppTheme.statusWarning
-          : AppTheme.statusAlert;
-
-  final statusSurfaceColor = score >= 0.8
-      ? AppTheme.normalSurface
-      : score >= 0.5
-          ? AppTheme.warningSurface
-          : AppTheme.alertSurface;
-
-  final statusText = score >= 0.8
-      ? 'NORMAL'
-      : score >= 0.5
-          ? 'WARNING'
-          : 'CRITICAL';
-
-  final statusIcon = score >= 0.8
-      ? Icons.eco_rounded
-      : score >= 0.5
-          ? Icons.thermostat_rounded
-          : Icons.warning_amber_rounded;
-
-  return SliverToBoxAdapter(
-    child: Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: AppTheme.bg1,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: statusColor.withOpacity(0.25)),
-        ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Spacer to separate from device notch nicely
+            const SizedBox(height: 12),
 
-            // ── Header ────────────────────────────────────────
+            // ── Giant Percentage & Sparkline Label ───────────
             Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
               children: [
-                const Icon(Icons.local_florist_rounded,
-                    color: AppTheme.inkFaint, size: 13),
-                const SizedBox(width: 6),
-                const Text(
-                  'GREENHOUSE HEALTH',
-                  style: TextStyle(
-                    color: AppTheme.inkFaint,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1.2,
+                Text(
+                  '$percent%',
+                  style: const TextStyle(
+                    color: Color.fromARGB(255, 10, 10, 10), // Emerald green from image
+                    fontSize: 97,
+                    fontWeight: FontWeight.w900,
+                    height: 0.9,
+                    letterSpacing: -4,
                   ),
                 ),
                 const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: statusSurfaceColor,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                        color: statusColor.withOpacity(0.3)),
+                const Row(
+                  children: [
+                    Icon(Icons.arrow_upward_rounded, color: Color(0xFF0F9F72), size: 14),
+                    SizedBox(width: 4),
+                    Text(
+                      'This week', // Exact label from image
+                      style: TextStyle(
+                        color: Color(0xFF706F69), // Muted slate gray
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+
+            // ── Status: Muted Double Line (Moved below the percentage) ──
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Greenhouse Status.',
+                  style: TextStyle(
+                    color: Color(0xFF706F69), // Exact color from mockup
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    height: 1.25,
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
+                ),
+                Text(
+                  getPipelineStatusText(percent), // Dynamic conditional status based on percentage
+                  style: const TextStyle(
+                    color: Color(0xFF706F69),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    height: 1.25,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 32),
+
+            // ── Row 3: Wide Card (Active roles equivalent - Light Green) ──
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFFA5DD9B), // Bright light green from mockup
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(statusIcon, color: statusColor, size: 12),
-                      const SizedBox(width: 5),
-                      Text(
-                        statusText,
+                      const Text(
+                        'Active alerts.',
                         style: TextStyle(
-                          color: statusColor,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.5,
+                          color: Color(0xFF132F28), // Deep forest green text
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        '$alertCount',
+                        style: const TextStyle(
+                          color: Color(0xFF132F28),
+                          fontSize: 36,
+                          fontWeight: FontWeight.w900,
+                          height: 1,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Sensors out of safe limits',
+                        style: TextStyle(
+                          color: Color(0xFF132F28),
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF132F28).withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      alertCount > 0 ? 'AT RISK' : 'STABLE',
+                      style: const TextStyle(
+                        color: Color(0xFF132F28),
+                        fontSize: 9,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // ── Row 4: Asymmetric Grid Layout ───────────────────────
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Tall Left Card (Deep Green) ──────────────────────
+                Expanded(
+                  flex: 1,
+                  child: Container(
+                    height: 196,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF132F28), // Deep forest pine green from mockup
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Reviewed.',
+                          style: TextStyle(
+                            color: Color(0xFFA5DD9B), // Light green text on deep green card
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          '$normalCount',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 34,
+                            fontWeight: FontWeight.w900,
+                            height: 1,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Sensors fully stable',
+                          style: TextStyle(
+                            color: Color(0xFFA5DD9B),
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+
+                // ── Stacked Right Cards (Vibrant Teal/Green) ─────────
+                Expanded(
+                  flex: 1,
+                  child: Column(
+                    children: [
+                      // Top Right Card (Pipeline equivalent)
+                      Container(
+                        height: 92,
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1CA37B), // Vibrant green from mockup
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Warning',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const Spacer(),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.baseline,
+                              textBaseline: TextBaseline.alphabetic,
+                              children: [
+                                Text(
+                                  '$warningCount',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 26,
+                                    fontWeight: FontWeight.w900,
+                                    height: 1,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                const Expanded(
+                                  child: Text(
+                                    'at risk',
+                                    style: TextStyle(
+                                      color: Color(0xFFA5DD9B),
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Bottom Right Card (Shortlist equivalent)
+                      Container(
+                        height: 92,
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1CA37B), // Vibrant green from mockup
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Monitored',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const Spacer(),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Text(
+                                  '$total',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 26,
+                                    fontWeight: FontWeight.w900,
+                                    height: 1,
+                                  ),
+                                ),
+                                const Spacer(),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFA5DD9B), // Light green pill
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Text(
+                                    'ACTIVE',
+                                    style: TextStyle(
+                                      color: Color(0xFF132F28), // Deep forest text
+                                      fontSize: 8,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -217,120 +354,201 @@ class DashboardScreen extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 16),
 
-            const SizedBox(height: 14),
-
-            // ── Score + breakdown ─────────────────────────────
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  '$percent',
-                  style: const TextStyle(
-                    color: AppTheme.ink,
-                    fontSize: 48,
-                    fontWeight: FontWeight.w800,
-                    height: 1,
-                    letterSpacing: -2,
+            // ── Greenhouse Overall Summary Card (Positioned below asymmetric grid) ──
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white, // Pure white floating canvas
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.03), // Soft floating ambient shadow
+                    blurRadius: 14,
+                    offset: const Offset(0, 6),
                   ),
-                ),
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 6),
-                  child: Text(
-                    '%',
-                    style: TextStyle(
-                      color: AppTheme.inkMid,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.analytics_outlined, color: Color(0xFF1CA37B), size: 16),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'OVERALL SUMMARY',
+                        style: TextStyle(
+                          color: Color(0xFF132F28),
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      const Spacer(),
+                      // Micro status dot indicator
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: alertCount > 0 ? AppTheme.statusAlert : AppTheme.statusNormal,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    alertCount > 0
+                        ? 'Greenhouse is currently experiencing anomalies. $alertCount sensor readings are outside target thresholds. Please review warning telemetry.'
+                        : 'System stability is highly optimal. Monitored indicators (Temperature, Humidity, CO2, Soil Moisture) are well within ideal ranges. Active relays are managing current loads.',
+                    style: const TextStyle(
+                      color: Color(0xFF706F69),
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      height: 1.4,
                     ),
                   ),
-                ),
-                const Spacer(),
-                // Dot legend
-                Row(
-                  children: [
-                    _buildDot(normalCount, AppTheme.statusNormal, 'OK'),
-                    if (warningCount > 0) ...[
-                      const SizedBox(width: 6),
-                      _buildDot(warningCount, AppTheme.statusWarning, 'WARN'),
-                    ],
-                    if (alertCount > 0) ...[
-                      const SizedBox(width: 6),
-                      _buildDot(alertCount, AppTheme.statusAlert, 'ALERT'),
-                    ],
-                  ],
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 12),
-
-            // ── Segmented bar ─────────────────────────────────
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: SizedBox(
-                height: 5,
-                child: Row(
-                  children: [
-                    if (normalCount > 0)
-                      Expanded(
-                        flex: normalCount,
-                        child: Container(color: AppTheme.statusNormal),
-                      ),
-                    if (warningCount > 0)
-                      Expanded(
-                        flex: warningCount,
-                        child: Container(color: AppTheme.statusWarning),
-                      ),
-                    if (alertCount > 0)
-                      Expanded(
-                        flex: alertCount,
-                        child: Container(color: AppTheme.statusAlert),
-                      ),
-                    // Fill remaining if all normal
-                    if (normalCount == total)
-                      Expanded(
-                        flex: 1,
-                        child: Container(color: AppTheme.statusNormal),
-                      ),
-                  ],
-                ),
+                ],
               ),
             ),
-
-            const SizedBox(height: 10),
-
-            // ── Footer ────────────────────────────────────────
-            Text(
-              '$normalCount of $total sensors normal',
-              style: const TextStyle(
-                color: AppTheme.inkFaint,
-                fontSize: 12,
-              ),
-            ),
-
+            const SizedBox(height: 16),
           ],
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
-Widget _buildDot(int count, Color color, String label) {
-  return Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Container(
-        width: 7, height: 7,
-        decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+  // ═══════════════════════════════════════════════════════════
+  // SENSORS SECTION HEADER
+  // ═══════════════════════════════════════════════════════════
+  Widget buildSensorsSectionHeader() {
+    return const SliverToBoxAdapter(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(24, 20, 24, 12),
+        child: Text(
+          'Sensors',
+          style: TextStyle(
+            color: AppTheme.ink,
+            fontSize: 20,
+            fontWeight: FontWeight.w900,
+            letterSpacing: -0.5,
+          ),
+        ),
       ),
-      const SizedBox(width: 4),
-      Text(
-        '$count $label',
-        style: const TextStyle(color: AppTheme.inkFaint, fontSize: 11),
-      ),
-    ],
-  );
-}
+    );
+  }
 
+  // ═══════════════════════════════════════════════════════════
+  // ALERT BANNER
+  // ═══════════════════════════════════════════════════════════
+  Widget buildAlertBanner(BuildContext context, AppState state) {
+    final alertSensors = state.readings
+        .where((r) => r.status == SensorStatus.alert)
+        .toList();
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 14),
+        child: FloatingCard(
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const AlertsScreen()),
+          ),
+          backgroundColor: AppTheme.alertSurface,
+          borderRadius: 12.0,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: [
+                const Icon(Icons.warning_amber_rounded,
+                    color: AppTheme.statusAlert, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    "${alertSensors.length} sensor${alertSensors.length > 1 ? "s" : ""} out of range: "
+                    "${alertSensors.map((a) => a.label).join(', ')}",
+                    style: const TextStyle(
+                      color: AppTheme.statusAlert,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const Icon(Icons.arrow_forward_rounded,
+                    color: AppTheme.statusAlert, size: 18),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // SENSOR CARDS
+  // ═══════════════════════════════════════════════════════════
+  Widget buildSensorCards(BuildContext context, AppState state) {
+    final readings = state.readings;
+    if (readings.isEmpty) {
+      return const SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.all(40),
+          child: Center(
+            child: Text(
+              'No sensor data available',
+              style: TextStyle(
+                color: AppTheme.inkFaint,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      sliver: SliverList(
+        delegate: SliverChildBuilderDelegate(
+          (context, index) {
+            final reading = readings[index];
+            return SensorCard(
+              reading: reading,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => SensorDetailScreen(sensorId: reading.id),
+                ),
+              ),
+            );
+          },
+          childCount: readings.length,
+        ),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // CONDITIONAL PIPELINE STATUS TEXT
+  // ═══════════════════════════════════════════════════════════
+  String getPipelineStatusText(int percent) {
+    if (percent >= 90) {
+      return 'Excellent / Optimal'; // Excellent / Optimal (Good)
+    } else if (percent >= 75) {
+      return 'Ready / Healthy'; // Ready / Healthy (Good)
+    } else if (percent >= 50) {
+      return 'Warning / At Risk'; // Warning / At Risk (Bad)
+    } else {
+      return 'Critical / Error'; // Critical / Error (Bad)
+    }
+  }
+
+  String fmt(DateTime t) {
+    final h = t.hour.toString().padLeft(2, '0');
+    final m = t.minute.toString().padLeft(2, '0');
+    final s = t.second.toString().padLeft(2, '0');
+    return 'Updated $h:$m:$s';
+  }
 }

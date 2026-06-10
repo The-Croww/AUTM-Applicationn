@@ -7,15 +7,15 @@ import '../../services/notification_service.dart';
 class AppState extends ChangeNotifier {
   final SensorRepository _sensorRepo;
   final DeviceRepository _deviceRepo;
-  final AlertRepository  _alertRepo;
+  final AlertRepository _alertRepo;
   final SystemRepository _systemRepo;
   final CameraRepository _cameraRepo;
 
   List<SensorReading> _readings = [];
-  List<DeviceState>   _devices  = [];
-  List<AlertRecord>   _alerts   = [];
-  SystemStatus?       _systemStatus;
-  List<BackupRecord>  _backups  = [];
+  List<DeviceState> _devices = [];
+  List<AlertRecord> _alerts = [];
+  SystemStatus? _systemStatus;
+  List<BackupRecord> _backups = [];
   final List<PlantSnapshot> _manualSnapshots = [];
 
   /// Tracks the last time each alert ID was shown as a system notification.
@@ -29,14 +29,14 @@ class AppState extends ChangeNotifier {
   AppState({
     required SensorRepository sensorRepository,
     required DeviceRepository deviceRepository,
-    required AlertRepository  alertRepository,
+    required AlertRepository alertRepository,
     required SystemRepository systemRepository,
     required CameraRepository cameraRepository,
-  }) : _sensorRepo = sensorRepository,
-       _deviceRepo = deviceRepository,
-       _alertRepo  = alertRepository,
-       _systemRepo = systemRepository,
-       _cameraRepo = cameraRepository {
+  })  : _sensorRepo = sensorRepository,
+        _deviceRepo = deviceRepository,
+        _alertRepo = alertRepository,
+        _systemRepo = systemRepository,
+        _cameraRepo = cameraRepository {
     _init();
   }
 
@@ -107,30 +107,33 @@ class AppState extends ChangeNotifier {
   }
 
   // ── Getters ──────────────────────────────────────────────────
-  List<SensorReading> get readings      => _readings;
-  List<DeviceState>   get devices       => _devices;
-  bool                get isConnected   => _systemStatus?.isConnected ?? true;
-  DateTime            get lastUpdated   => _systemStatus?.lastSeen ?? DateTime.now();
-  String              get connectionLabel => isConnected ? 'LIVE' : 'OFFLINE';
+  List<SensorReading> get readings => _readings;
+  List<DeviceState> get devices => _devices;
+  bool get isConnected => _systemStatus?.isConnected ?? true;
+  DateTime get lastUpdated => _systemStatus?.lastSeen ?? DateTime.now();
+  String get connectionLabel => isConnected ? 'LIVE' : 'OFFLINE';
   int get alertCount => activeAlerts.length;
 
-  List<AlertRecord>   get allAlerts    => _alerts;
-  List<AlertRecord>   get activeAlerts => _alerts.where((a) => !a.isResolved).toList();
+  List<AlertRecord> get allAlerts => _alerts;
+  List<AlertRecord> get activeAlerts => _alerts.where((a) => !a.isResolved).toList();
 
   List<AutomationRule> get automationRules => _deviceRepo.automationRules;
 
-  List<DailyImageSet> get growthTimeline  => _cameraRepo.growthTimeline;
-  DailyImageSet       get todayImageSet   => _cameraRepo.todayImageSet;
+  List<DailyImageSet> get growthTimeline => _cameraRepo.growthTimeline;
+  DailyImageSet get todayImageSet => _cameraRepo.todayImageSet;
   List<PlantSnapshot> get manualSnapshots => List.unmodifiable(_manualSnapshots);
 
-  List<BackupRecord>  get backups         => _backups;
+  List<BackupRecord> get backups => _backups;
 
   // ── Sensors ──────────────────────────────────────────────────
   SensorHistory historyFor(String sensorId) => _sensorRepo.historyFor(sensorId);
 
   SensorReading? readingById(String id) {
-    try { return _readings.firstWhere((r) => r.id == id); }
-    catch (_) { return null; }
+    try {
+      return _readings.firstWhere((r) => r.id == id);
+    } catch (_) {
+      return null;
+    }
   }
 
   // ── Devices ──────────────────────────────────────────────────

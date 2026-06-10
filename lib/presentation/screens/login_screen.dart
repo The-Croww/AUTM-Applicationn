@@ -2,7 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../data/firebase/firebased_repositories.dart';
+import '../../data/firebase/firebase_repositories.dart';
 
 // ─────────────────────────────────────────────────────────────
 // Place at: lib/presentation/screens/login_screen.dart
