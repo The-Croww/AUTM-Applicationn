@@ -128,6 +128,10 @@ class AppState extends ChangeNotifier {
   // ── Sensors ──────────────────────────────────────────────────
   SensorHistory historyFor(String sensorId) => _sensorRepo.historyFor(sensorId);
 
+  Future<SensorHistory> fetchHistory(String sensorId, {Duration duration = const Duration(hours: 6)}) async {
+    return _sensorRepo.fetchHistory(sensorId, duration: duration);
+  }
+
   SensorReading? readingById(String id) {
     try {
       return _readings.firstWhere((r) => r.id == id);

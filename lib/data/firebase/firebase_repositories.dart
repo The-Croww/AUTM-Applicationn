@@ -56,144 +56,190 @@ import 'package:google_sign_in/google_sign_in.dart';
 //  /config/automationRules/{id}/...
 // ───────────────────────────────────────────────────────────────
 
-// Uncomment when Firebase packages are added:
-// import 'package:firebase_database/firebase_database.dart';
+import 'package:firebase_database/firebase_database.dart';
 
 class FirebaseSensorRepository implements SensorRepository {
-  // final _db = FirebaseDatabase.instance;
-  // StreamSubscription? _sub;
-  // StreamController<List<SensorReading>>? _controller;
+  final DatabaseReference _db = FirebaseDatabase.instance.ref();
+  StreamSubscription? _sub;
+  StreamController<List<SensorReading>>? _controller;
 
   // ── Config cache (loaded once on init) ────────────────────────
-  // Map<String, dynamic> _sensorConfig = {};
+  Map<String, dynamic> _sensorConfig = {};
 
   @override
   Stream<List<SensorReading>> get sensorStream {
-    // PRODUCTION IMPLEMENTATION:
-    //
-    // final controller = StreamController<List<SensorReading>>.broadcast();
-    //
-    // // Load config once
-    // _db.ref('/config/sensors').get().then((snap) {
-    //   _sensorConfig = Map<String, dynamic>.from(snap.value as Map);
-    //
-    //   // Then listen to live readings
-    //   _db.ref('/sensors').onValue.listen((event) {
-    //     final data = Map<String, dynamic>.from(event.snapshot.value as Map);
-    //     final readings = data.entries.map((e) {
-    //       return SensorReading.fromJson(
-    //         e.key,
-    //         e.value as Map,
-    //         _sensorConfig[e.key] as Map? ?? {},
-    //       );
-    //     }).toList();
-    //     controller.add(readings);
-    //   });
-    // });
-    //
-    // return controller.stream;
+    final controller = StreamController<List<SensorReading>>.broadcast();
 
-    throw UnimplementedError('Add firebase_database package first.');
+    // Load config once
+    _db.child('/config/sensors').get().then((snap) {
+      if (snap.exists && snap.value != null) {
+        _sensorConfig = Map<String, dynamic>.from(snap.value as Map);
+      }
+
+      // Then listen to live readings
+      _sub = _db.child('/sensors').onValue.listen((event) {
+        if (event.snapshot.exists && event.snapshot.value != null) {
+          final data = Map<String, dynamic>.from(event.snapshot.value as Map);
+          final readings = data.entries.map((e) {
+            return SensorReading.fromJson(
+              e.key,
+              e.value as Map,
+              _sensorConfig[e.key] as Map? ?? {},
+            );
+          }).toList();
+          controller.add(readings);
+        } else {
+          controller.add([]);
+        }
+      });
+    });
+
+    return controller.stream;
   }
 
   @override
   SensorHistory historyFor(String sensorId) {
-    // PRODUCTION IMPLEMENTATION:
-    //
-    // final now = DateTime.now().millisecondsSinceEpoch;
-    // final sixHoursAgo = now - (6 * 60 * 60 * 1000);
-    //
-    // final snap = await _db
-    //     .ref('/history/$sensorId')
-    //     .orderByChild('timestamp')
-    //     .startAt(sixHoursAgo)
-    //     .get();
-    //
-    // final points = (snap.value as Map? ?? {}).entries.map((e) {
-    //   return SensorDataPoint.fromJson(Map<String, dynamic>.from(e.value as Map));
-    // }).toList()
-    //   ..sort((a, b) => a.time.compareTo(b.time));
-    //
-    // return SensorHistory(sensorId: sensorId, points: points);
+    return SensorHistory(sensorId: sensorId, points: []);
+  }
 
-    throw UnimplementedError('Add firebase_database package first.');
+  @override
+  Future<SensorHistory> fetchHistory(String sensorId, {Duration duration = const Duration(hours: 6)}) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final startTime = now - duration.inMilliseconds;  // ← uses the parameter!
+  
+    final snap = await _db
+        .child('/history/$sensorId')
+        .orderByChild('timestamp')
+        .startAt(startTime.toDouble())
+        .get();
+  
+    List<SensorDataPoint> points = [];
+    if (snap.exists && snap.value != null) {
+      points = (snap.value as Map? ?? {}).entries.map((e) {
+        return SensorDataPoint.fromJson(Map<String, dynamic>.from(e.value as Map));
+      }).toList()
+        ..sort((a, b) => a.time.compareTo(b.time));
+    }
+  
+    return SensorHistory(sensorId: sensorId, points: points);
   }
 
   @override
   void dispose() {
-    // _sub?.cancel();
-    // _controller?.close();
+    _sub?.cancel();
+    _controller?.close();
   }
 }
 
 // ─────────────────────────────────────────────────────────────
 class FirebaseDeviceRepository implements DeviceRepository {
+  final DatabaseReference _db = FirebaseDatabase.instance.ref();
+  StreamSubscription? _sub;
+  List<DeviceState> _currentDevices = [];
+  List<AutomationRule> _automationRules = [];
 
   @override
   Stream<List<DeviceState>> get deviceStream {
-    // PRODUCTION IMPLEMENTATION:
-    //
-    // return FirebaseDatabase.instance
-    //     .ref('/devices')
-    //     .onValue
-    //     .map((event) {
-    //       final data = Map<String, dynamic>.from(
-    //           event.snapshot.value as Map? ?? {});
-    //       return data.entries
-    //           .map((e) => DeviceState.fromJson(
-    //               e.key, Map<String, dynamic>.from(e.value as Map)))
-    //           .toList();
-    //     });
+    _db.child('/devices').onValue.listen((event) {
+      if (event.snapshot.exists && event.snapshot.value != null) {
+        final data = Map<String, dynamic>.from(event.snapshot.value as Map);
+        _currentDevices = data.entries
+            .map((e) => DeviceState.fromJson(
+                e.key, Map<String, dynamic>.from(e.value as Map)))
+            .toList();
+      } else {
+        _currentDevices = [];
+      }
+    });
 
-    throw UnimplementedError('Add firebase_database package first.');
+    // Also load automation rules on init
+    _loadAutomationRules();
+
+    return _db.child('/devices').onValue.map((event) {
+      if (event.snapshot.exists && event.snapshot.value != null) {
+        final data = Map<String, dynamic>.from(event.snapshot.value as Map);
+        return data.entries
+            .map((e) => DeviceState.fromJson(
+                e.key, Map<String, dynamic>.from(e.value as Map)))
+            .toList();
+      }
+      return [];
+    });
+  }
+
+  Future<void> _loadAutomationRules() async {
+    final snap = await _db.child('/config/automationRules').get();
+    if (snap.exists && snap.value != null) {
+      final data = Map<String, dynamic>.from(snap.value as Map);
+      _automationRules = data.entries
+          .map((e) => AutomationRule.fromJson(Map<String, dynamic>.from({
+            'id': e.key,                    
+            ...(e.value as Map),            
+          })))
+          .toList();
+    }
   }
 
   @override
-  List<DeviceState> get currentDevices => [];
+  List<DeviceState> get currentDevices => _currentDevices;
 
   @override
-  List<AutomationRule> get automationRules => [];
+  List<AutomationRule> get automationRules => _automationRules;
 
   @override
   void setDeviceStatus(String deviceId, DeviceStatus status, bool isOn) {
-    throw UnimplementedError('Add firebase_database package first.');
+    // Write command to /commands/{deviceId}
+    // ESP32 will read this, apply it, and write back to /devices/{deviceId}
+    final commandRef = _db.child('/commands/$deviceId');
+    
+    final commandData = {
+      'mode': status.toString().split('.').last,
+      'targetState': isOn,
+      'issuedBy': 'app',
+      'issuedAt': DateTime.now().millisecondsSinceEpoch,
+      'status': 'pending',
+    };
+    
+    commandRef.set(commandData);
   }
 
   @override
-  void dispose() {}
+  void dispose() {
+    _sub?.cancel();
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
 class FirebaseAlertRepository implements AlertRepository {
+  final DatabaseReference _db = FirebaseDatabase.instance.ref();
 
   @override
   Stream<List<AlertRecord>> get alertStream {
-    // PRODUCTION IMPLEMENTATION:
-    //
-    // return FirebaseDatabase.instance
-    //     .ref('/alerts')
-    //     .orderByChild('createdAt')
-    //     .limitToLast(50)
-    //     .onValue
-    //     .map((event) {
-    //       final data = Map<String, dynamic>.from(
-    //           event.snapshot.value as Map? ?? {});
-    //       return data.entries
-    //           .map((e) => AlertRecord.fromJson(
-    //               e.key, Map<String, dynamic>.from(e.value as Map)))
-    //           .toList()
-    //         ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    //     });
-
-    throw UnimplementedError('Add firebase_database package first.');
+    return _db
+        .child('/alerts')
+        .onValue
+        .map((event) {
+          if (event.snapshot.exists && event.snapshot.value != null) {
+            final data = Map<String, dynamic>.from(
+                event.snapshot.value as Map);
+            return data.entries
+                .map((e) => AlertRecord.fromJson(
+                    e.key, Map<String, dynamic>.from(e.value as Map)))
+                .toList()
+              ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          }
+          return [];
+        });
   }
 
   @override
   Future<void> resolveAlert(String alertId) async {
-    // await FirebaseDatabase.instance
-    //     .ref('/alerts/$alertId')
-    //     .update({'isResolved': true, 'resolvedAt': DateTime.now().millisecondsSinceEpoch});
-    throw UnimplementedError('Add firebase_database package first.');
+    await _db
+        .child('/alerts/$alertId')
+        .update({
+          'isResolved': true,
+          'resolvedAt': DateTime.now().millisecondsSinceEpoch
+        });
   }
 
   @override
@@ -202,38 +248,45 @@ class FirebaseAlertRepository implements AlertRepository {
 
 // ─────────────────────────────────────────────────────────────
 class FirebaseSystemRepository implements SystemRepository {
+  final DatabaseReference _db = FirebaseDatabase.instance.ref();
 
   @override
   Stream<SystemStatus> get statusStream {
-    // PRODUCTION IMPLEMENTATION:
-    //
-    // // Watch Firebase's own connection indicator
-    // final connectedRef = FirebaseDatabase.instance.ref('/.info/connected');
-    // // Watch ESP32 heartbeat
-    // final systemRef = FirebaseDatabase.instance.ref('/system');
-    //
-    // return connectedRef.onValue.asyncMap((connEvent) async {
-    //   final isConnected = connEvent.snapshot.value as bool? ?? false;
-    //   if (!isConnected) return SystemStatus.offline();
-    //
-    //   final sysSnap = await systemRef.get();
-    //   if (!sysSnap.exists) return SystemStatus.offline();
-    //   return SystemStatus.fromJson(
-    //       Map<String, dynamic>.from(sysSnap.value as Map));
-    // });
+    // Watch Firebase's own connection indicator
+    final connectedRef = _db.child('/.info/connected');
+    // Watch ESP32 heartbeat
+    final systemRef = _db.child('/system');
 
-    throw UnimplementedError('Add firebase_database package first.');
+    return connectedRef.onValue.asyncMap((connEvent) async {
+      final isConnected = connEvent.snapshot.value as bool? ?? false;
+      if (!isConnected) return SystemStatus.offline();
+
+      final sysSnap = await systemRef.get();
+      if (!sysSnap.exists) return SystemStatus.offline();
+      return SystemStatus.fromJson(
+          Map<String, dynamic>.from(sysSnap.value as Map));
+    });
   }
 
   @override
-  Future<BackupRecord> createBackup() async {
+    Future<BackupRecord> createBackup() async { 
     // This would export Firebase data to a Storage JSON file
-    throw UnimplementedError('Add firebase_database package first.');
+    // For now, return a mock backup record
+      return BackupRecord(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      createdAt: DateTime.now(),
+      sensorReadingCount: 0,
+      alertCount: 0,
+      snapshotCount: 0,
+      status: 'completed',
+    );
   }
 
   @override
   Future<List<BackupRecord>> getBackups() async {
-    throw UnimplementedError('Add firebase_database package first.');
+    // This would list backups from Firebase Storage
+    // For now, return empty list
+    return [];
   }
 
   @override

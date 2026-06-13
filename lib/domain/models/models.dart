@@ -54,7 +54,7 @@ class SensorReading {
       warningHigh: (config['warningHigh'] as num?)?.toDouble() ?? 100,
       icon:        config['icon']       as String? ?? 'sensors',
       timestamp:   DateTime.fromMillisecondsSinceEpoch(
-                     (json['timestamp'] as num).toInt()),
+                     (json['timestamp'] as num).toInt(), isUtc: true).toLocal(),
     );
   }
 
@@ -283,6 +283,7 @@ class DeviceCommand {
 // AUTOMATION RULE
 // ─────────────────────────────────────────────────────────────
 class AutomationRule {
+  final String id;
   final String sensorId;
   final String deviceId;
   final double triggerLow;
@@ -291,6 +292,7 @@ class AutomationRule {
   final bool   isActive;
 
   const AutomationRule({
+    required this.id,
     required this.sensorId,
     required this.deviceId,
     required this.triggerLow,
@@ -300,6 +302,7 @@ class AutomationRule {
   });
 
   factory AutomationRule.fromJson(Map<dynamic, dynamic> json) => AutomationRule(
+    id:                json['id']                as String ?? '',
     sensorId:          json['sensorId']          as String,
     deviceId:          json['deviceId']          as String,
     triggerLow:        (json['triggerLow']        as num).toDouble(),
@@ -309,6 +312,7 @@ class AutomationRule {
   );
 
   Map<String, dynamic> toJson() => {
+    'id':                id,
     'sensorId':          sensorId,
     'deviceId':          deviceId,
     'triggerLow':        triggerLow,
@@ -362,6 +366,7 @@ class AlertRecord {
   );
 
   Map<String, dynamic> toJson() => {
+    'id':          id,
     'sensorId':    sensorId,
     'sensorLabel': sensorLabel,
     'value':       value,

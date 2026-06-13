@@ -30,11 +30,12 @@ void main() async {
   await Firebase.initializeApp();
 
   // ── Wire repositories ─────────────────────────────────────────
-  final sensorRepo = MockSensorRepository();
-  final deviceRepo = MockDeviceRepository();
-  final alertRepo  = MockAlertRepository(sensorRepo.sensorStream);
-  final systemRepo = MockSystemRepository();
-  final cameraRepo = MockCameraRepository();
+  // Using Firebase repositories for real ESP32 data
+  final sensorRepo = FirebaseSensorRepository();
+  final deviceRepo = FirebaseDeviceRepository();
+  final alertRepo  = FirebaseAlertRepository();
+  final systemRepo = FirebaseSystemRepository();
+  final cameraRepo = MockCameraRepository(); // Camera still uses mock for now
 
   await NotificationService.init();
 

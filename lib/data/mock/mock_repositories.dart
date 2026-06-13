@@ -51,7 +51,6 @@ class MockSensorRepository implements SensorRepository {
   final _clock  = _MockClock();
   final _historyMap = <String, List<SensorDataPoint>>{};
 
-  // Current simulated values
   double _temp     = 27.5;
   double _humidity = 72.0;
   double _light    = 11500.0;
@@ -79,6 +78,11 @@ class MockSensorRepository implements SensorRepository {
       return SensorHistory(sensorId: sensorId, points: List.unmodifiable(hist));
     }
     return _syntheticHistory(sensorId, 48);
+  }
+
+  @override
+  Future<SensorHistory> fetchHistory(String sensorId, {Duration duration = const Duration(hours: 6)}) async {
+    return historyFor(sensorId);
   }
 
   void _tick() {
@@ -189,10 +193,38 @@ class MockDeviceRepository implements DeviceRepository {
 
   @override
   List<AutomationRule> get automationRules => const [
-    AutomationRule(sensorId: 'temperature', deviceId: 'exhaust_fan',       triggerLow: 0,     triggerHigh: 28.0,  actionDescription: 'Turn ON exhaust fan when temp > 28°C, OFF when ≤ 26°C'),
-    AutomationRule(sensorId: 'humidity',    deviceId: 'circulation_fan_1', triggerLow: 0,     triggerHigh: 75.0,  actionDescription: 'Turn ON circulation fans when RH > 75%, OFF when ≤ 70%'),
-    AutomationRule(sensorId: 'moisture',    deviceId: 'pump',              triggerLow: 60.0,  triggerHigh: 100,   actionDescription: 'Run pump for 2 min when moisture < 60%'),
-    AutomationRule(sensorId: 'light',       deviceId: 'grow_light',        triggerLow: 10000, triggerHigh: 99999, actionDescription: 'Turn ON grow light when lux < 10,000 (6AM–6PM)'),
+    AutomationRule(
+      id: 'rule_1',
+      sensorId: 'temperature',
+      deviceId: 'exhaust_fan',
+      triggerLow: 0,
+      triggerHigh: 28.0,
+      actionDescription: 'Turn ON exhaust fan when temp > 28°C, OFF when ≤ 26°C',
+    ),
+    AutomationRule(
+      id: 'rule_2',
+      sensorId: 'humidity',
+      deviceId: 'circulation_fan_1',
+      triggerLow: 0,
+      triggerHigh: 75.0,
+      actionDescription: 'Turn ON circulation fans when RH > 75%, OFF when ≤ 70%',
+    ),
+    AutomationRule(
+      id: 'rule_3',
+      sensorId: 'moisture',
+      deviceId: 'pump',
+      triggerLow: 60.0,
+      triggerHigh: 100,
+      actionDescription: 'Run pump for 2 min when moisture < 60%',
+    ),
+    AutomationRule(
+      id: 'rule_4',
+      sensorId: 'light',
+      deviceId: 'grow_light',
+      triggerLow: 10000,
+      triggerHigh: 99999,
+      actionDescription: 'Turn ON grow light when lux < 10,000 (6AM–6PM)',
+    ),
   ];
 
   @override
