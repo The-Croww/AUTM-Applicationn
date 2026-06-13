@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:automato/domain/models/sensor_data.dart';
 import 'package:automato/presentation/theme/app_theme.dart';
@@ -15,7 +16,7 @@ class FloatingCard extends StatelessWidget {
     super.key,
     required this.child,
     this.onTap,
-    this.backgroundColor = Colors.white, // Pure white contrast on bg0 warm canvas
+    this.backgroundColor = Colors.white,
     this.borderRadius = 16.0,
   });
 
@@ -29,12 +30,12 @@ class FloatingCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(borderRadius),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.03), // Ambient soft shadow
+              color: Colors.black.withOpacity(0.03),
               blurRadius: 18,
               offset: const Offset(0, 8),
             ),
             BoxShadow(
-              color: Colors.black.withOpacity(0.02), // Layered depth
+              color: Colors.black.withOpacity(0.02),
               blurRadius: 6,
               offset: const Offset(0, 2),
             ),
@@ -47,9 +48,10 @@ class FloatingCard extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────
-// SENSOR CARD — FLOATING & HIGH-INFORMATION
+// SENSOR CARD — with "Just now" pause + smooth live timer
+// Shows "Just now" for 5s after new data, then counts: 5s → 6s → 7s...
 // ─────────────────────────────────────────────────────────────
-class SensorCard extends StatelessWidget {
+class SensorCard extends StatefulWidget {
   final SensorReading reading;
   final VoidCallback onTap;
 
@@ -60,15 +62,85 @@ class SensorCard extends StatelessWidget {
   });
 
   @override
+  State<SensorCard> createState() => _SensorCardState();
+}
+
+class _SensorCardState extends State<SensorCard> {
+  Timer? _timer;
+  DateTime _now = DateTime.now();
+  static const _justNowThreshold = 5; // seconds
+
+  @override
+  void initState() {
+    super.initState();
+    _startTimer();
+  }
+
+  void _startTimer() {
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      final age = DateTime.now().difference(widget.reading.timestamp).inSeconds;
+      // Only update display if data is older than threshold
+      if (age >= _justNowThreshold) {
+        setState(() => _now = DateTime.now());
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(SensorCard old) {
+    super.didUpdateWidget(old);
+    if (old.reading.timestamp != widget.reading.timestamp) {
+      // New data arrived — reset timer and force rebuild
+      _startTimer();
+      setState(() => _now = DateTime.now());
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  String _timeAgo(DateTime timestamp) {
+    final diff = _now.difference(timestamp);
+    final seconds = diff.inSeconds;
+    if (seconds < _justNowThreshold) return 'Just now';
+    if (seconds < 60) return '${seconds}s ago';
+    if (seconds < 3600) return '${seconds ~/ 60}m ${seconds % 60}s ago';
+    if (seconds < 86400) return '${seconds ~/ 3600}h ${(seconds % 3600) ~/ 60}m ago';
+    return '${seconds ~/ 86400}d ${(seconds % 86400) ~/ 3600}h ago';
+  }
+
+  bool get _isOffline {
+    return _now.difference(widget.reading.timestamp).inMinutes > 15;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final reading = widget.reading;
     final colors = cardColorsFor(reading.status);
     final analysis = getAnalysisText(reading);
+    final offline = _isOffline;
+
+    final effectiveColors = offline
+        ? CardColors(
+            background: Colors.grey.shade100,
+            accent: AppTheme.inkFaint,
+            track: AppTheme.inkFaint.withOpacity(0.2),
+            badgeBg: AppTheme.inkFaint.withOpacity(0.1),
+            badgeText: AppTheme.inkFaint,
+            analysisBg: AppTheme.inkFaint.withOpacity(0.05),
+          )
+        : colors;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       child: FloatingCard(
-        onTap: onTap,
-        backgroundColor: colors.background,
+        onTap: widget.onTap,
+        backgroundColor: effectiveColors.background,
         borderRadius: 16.0,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
@@ -84,20 +156,20 @@ class SensorCard extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
-                            color: colors.badgeBg,
+                            color: effectiveColors.badgeBg,
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
                             iconForSensor(reading.icon),
-                            color: colors.badgeText,
+                            color: effectiveColors.badgeText,
                             size: 16,
                           ),
                         ),
                         const SizedBox(width: 10),
                         Text(
                           reading.label.toUpperCase(),
-                          style: const TextStyle(
-                            color: AppTheme.ink,
+                          style: TextStyle(
+                            color: offline ? AppTheme.inkFaint : AppTheme.ink,
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
                             letterSpacing: 0.8,
@@ -109,13 +181,13 @@ class SensorCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: colors.badgeBg,
-                      borderRadius: BorderRadius.circular(20), // Pill status badge
+                      color: effectiveColors.badgeBg,
+                      borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      statusLabel(reading.status),
+                      offline ? 'OFFLINE' : statusLabel(reading.status),
                       style: TextStyle(
-                        color: colors.badgeText,
+                        color: effectiveColors.badgeText,
                         fontSize: 9,
                         fontWeight: FontWeight.w900,
                         letterSpacing: 0.5,
@@ -136,8 +208,8 @@ class SensorCard extends StatelessWidget {
                     children: [
                       Text(
                         formatValue(reading.value),
-                        style: const TextStyle(
-                          color: AppTheme.ink,
+                        style: TextStyle(
+                          color: offline ? AppTheme.inkFaint : AppTheme.ink,
                           fontSize: 42,
                           fontWeight: FontWeight.w900,
                           height: 0.95,
@@ -147,8 +219,8 @@ class SensorCard extends StatelessWidget {
                       const SizedBox(width: 4),
                       Text(
                         reading.unit,
-                        style: const TextStyle(
-                          color: AppTheme.inkMid,
+                        style: TextStyle(
+                          color: offline ? AppTheme.inkFaint : AppTheme.inkMid,
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
                         ),
@@ -171,8 +243,8 @@ class SensorCard extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         '${reading.min.toStringAsFixed(0)} - ${reading.max.toStringAsFixed(0)} ${reading.unit}',
-                        style: const TextStyle(
-                          color: AppTheme.inkMid,
+                        style: TextStyle(
+                          color: offline ? AppTheme.inkFaint : AppTheme.inkMid,
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                         ),
@@ -183,40 +255,49 @@ class SensorCard extends StatelessWidget {
               ),
               const SizedBox(height: 14),
 
-              // ── Smart Analysis Telemetry Output (Premium inline banner) ──
+              // ── Smart Analysis Telemetry Output with SMOOTH LIVE TIMER ──
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: colors.analysisBg,
+                  color: effectiveColors.analysisBg,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
                   children: [
                     Icon(
-                      reading.status == SensorStatus.normal
+                      reading.status == SensorStatus.normal && !offline
                           ? Icons.check_circle_rounded
                           : Icons.info_outline_rounded,
-                      color: colors.badgeText,
+                      color: effectiveColors.badgeText,
                       size: 14,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        analysis,
+                        offline ? 'Sensor offline — last reading may be stale' : analysis,
                         style: TextStyle(
-                          color: colors.badgeText,
+                          color: effectiveColors.badgeText,
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
-                    Text(
-                      timeAgo(reading.timestamp),
-                      style: const TextStyle(
-                        color: AppTheme.inkFaint,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
+                    // SMOOTH LIVE TIMER with "Just now" pause
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      transitionBuilder: (child, animation) => FadeTransition(
+                        opacity: animation,
+                        child: child,
+                      ),
+                      child: Text(
+                        _timeAgo(reading.timestamp),
+                        key: ValueKey<String>(_timeAgo(reading.timestamp)),
+                        style: const TextStyle(
+                          color: AppTheme.inkFaint,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ],
@@ -224,14 +305,14 @@ class SensorCard extends StatelessWidget {
               ),
               const SizedBox(height: 12),
 
-              // ── Threshold Slider Track (Pill styled slider) ──
+              // ── Threshold Slider Track ──
               Row(
                 children: [
                   Expanded(
                     child: Container(
                       height: 8,
                       decoration: BoxDecoration(
-                        color: colors.track,
+                        color: effectiveColors.track,
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: FractionallySizedBox(
@@ -239,7 +320,7 @@ class SensorCard extends StatelessWidget {
                         widthFactor: reading.percentage.clamp(0.0, 1.0),
                         child: Container(
                           decoration: BoxDecoration(
-                            color: colors.accent,
+                            color: effectiveColors.accent,
                             borderRadius: BorderRadius.circular(4),
                           ),
                         ),
@@ -338,14 +419,6 @@ class SensorCard extends StatelessWidget {
       default:
         return Icons.sensors_rounded;
     }
-  }
-
-  String timeAgo(DateTime timestamp) {
-    final diff = DateTime.now().difference(timestamp);
-    if (diff.inSeconds < 60) return '${diff.inSeconds}s ago';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    return '${diff.inDays}d ago';
   }
 }
 

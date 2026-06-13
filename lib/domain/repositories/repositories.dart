@@ -15,6 +15,9 @@ abstract class SensorRepository {
   /// Snapshot of the most recent history window for [sensorId].
   SensorHistory historyFor(String sensorId);
 
+  /// Fetch history data from Firebase for [sensorId].
+  Future<SensorHistory> fetchHistory(String sensorId, {Duration duration});
+
   void dispose();
 }
 
