@@ -170,6 +170,7 @@ class _LoginScreenState extends State<LoginScreen>
       setState(() {
         _googleLoading = false;
         _errorMsg = 'Google sign-in failed: ${e.toString()}';
+        print('Google sign-in failed: ${e.toString()}');
       });
     }
   }
