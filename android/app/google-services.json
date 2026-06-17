@@ -8,6 +8,50 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:262671604101:android:d33a7d3f2e2189ecab4cec",
+        "android_client_info": {
+          "package_name": "com.automato.greenhouse"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "262671604101-6257nc6465m0a4b58d3b5lrvgq7oit24.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.automato.greenhouse",
+            "certificate_hash": "992ddbc5e428da041221b5d9ca7761bc1501c6de"
+          }
+        },
+        {
+          "client_id": "262671604101-u47jh2m5rs7of3doseoalq6gro3lvpvk.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBKnuSxo65H7nbaskmWAb7IqWmp_TXsMdg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "262671604101-u47jh2m5rs7of3doseoalq6gro3lvpvk.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "262671604101-kq73vjjaftnnesl1prrifiinm7rt1k8e.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.autmApplication02"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:262671604101:android:b08624860587e3b9ab4cec",
         "android_client_info": {
           "package_name": "com.example.autm_application02"
@@ -38,6 +82,13 @@
             {
               "client_id": "262671604101-u47jh2m5rs7of3doseoalq6gro3lvpvk.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "262671604101-kq73vjjaftnnesl1prrifiinm7rt1k8e.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.autmApplication02"
+              }
             }
           ]
         }
