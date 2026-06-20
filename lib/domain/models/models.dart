@@ -1,15 +1,43 @@
 // ═══════════════════════════════════════════════════════════════
 // DOMAIN MODELS — Firebase-serializable
-// Every model has fromJson() + toJson() so swapping the data
-// source (mock → Firebase) requires zero changes to UI code.
 // ═══════════════════════════════════════════════════════════════
 
 // ── Enums ──────────────────────────────────────────────────────
 enum SensorStatus { normal, warning, alert }
 enum DeviceStatus { auto, manualOn, manualOff }
-enum CaptureSlot  { morning, afternoon, evening }
-enum HealthStatus { healthy, fair, poor }
 enum CommandStatus { pending, acknowledged, failed, timedOut }
+enum CaptureSlot { morning, afternoon, evening, manual }
+enum HealthStatus { healthy, fair, poor }
+
+// ── Extension for CaptureSlot labels ─────────────────────────────
+extension CaptureSlotLabel on CaptureSlot {
+  String get label {
+    switch (this) {
+      case CaptureSlot.morning:
+        return 'Morning';
+      case CaptureSlot.afternoon:
+        return 'Afternoon';
+      case CaptureSlot.evening:
+        return 'Evening';
+      case CaptureSlot.manual:
+        return 'Manual';
+    }
+  }
+
+  String get labelShort {
+    switch (this) {
+      case CaptureSlot.morning:
+        return '6AM';
+      case CaptureSlot.afternoon:
+        return '2PM';
+      case CaptureSlot.evening:
+        return '10PM';
+      case CaptureSlot.manual:
+        return 'MNL';
+    }
+  }
+}
+
 
 // ─────────────────────────────────────────────────────────────
 // SENSOR MODELS
@@ -39,9 +67,6 @@ class SensorReading {
     required this.timestamp,
   });
 
-  // ── Firebase deserialization ──────────────────────────────────
-  // Firebase RTDB stores: { value: 27.5, timestamp: 1234567890 }
-  // The static config (label, min, max etc.) comes from /config/sensors
   factory SensorReading.fromJson(String id, Map<dynamic, dynamic> json, Map<dynamic, dynamic> config) {
     return SensorReading(
       id:          id,
@@ -58,8 +83,6 @@ class SensorReading {
     );
   }
 
-  // ── Firebase serialization ────────────────────────────────────
-  // ESP32 writes this structure to /sensors/{id}
   Map<String, dynamic> toJson() => {
     'value':     value,
     'timestamp': timestamp.millisecondsSinceEpoch,
@@ -131,7 +154,7 @@ class DeviceState {
   final DeviceStatus status;
   final DateTime? lastTriggered;
   final String?   triggerReason;
-  final String?   updatedBy;        // userId — who last changed it
+  final String?   updatedBy;
 
   const DeviceState({
     required this.id,
@@ -200,16 +223,11 @@ class DeviceState {
 }
 
 // ─────────────────────────────────────────────────────────────
-// DEVICE COMMAND  — the safe command pattern
-// Written by Flutter → /commands/{deviceId}
-// Read + executed by ESP32
-// ESP32 writes ack back to /commands/{deviceId}/ack
-// ─────────────────────────────────────────────────────────────
 class DeviceCommand {
   final String        deviceId;
   final DeviceStatus  mode;
   final bool          targetState;
-  final String        issuedBy;      // userId
+  final String        issuedBy;
   final DateTime      issuedAt;
   final CommandStatus commandStatus;
   final DateTime?     acknowledgedAt;
@@ -280,8 +298,6 @@ class DeviceCommand {
 }
 
 // ─────────────────────────────────────────────────────────────
-// AUTOMATION RULE
-// ─────────────────────────────────────────────────────────────
 class AutomationRule {
   final String id;
   final String sensorId;
@@ -322,8 +338,6 @@ class AutomationRule {
   };
 }
 
-// ─────────────────────────────────────────────────────────────
-// ALERT
 // ─────────────────────────────────────────────────────────────
 class AlertRecord {
   final String       id;
@@ -388,14 +402,16 @@ class AlertRecord {
 // ─────────────────────────────────────────────────────────────
 // CAMERA + AI MODELS
 // ─────────────────────────────────────────────────────────────
+
 class PlantSnapshot {
   final String   id;
   final CaptureSlot slot;
   final DateTime capturedAt;
   final bool     isManual;
   final int      dayNumber;
-  final String?  imageUrl;       // Firebase Storage download URL
-  final String?  storagePath;    // Firebase Storage path for deletion
+  final String?  imageUrl;       // Google Drive file ID
+  final String?  storagePath;    // Legacy
+  final String?  localPath;      // Local permanent file path
 
   const PlantSnapshot({
     required this.id,
@@ -405,6 +421,7 @@ class PlantSnapshot {
     required this.dayNumber,
     this.imageUrl,
     this.storagePath,
+    this.localPath,
   });
 
   factory PlantSnapshot.fromJson(String id, Map<dynamic, dynamic> json) => PlantSnapshot(
@@ -416,6 +433,7 @@ class PlantSnapshot {
     dayNumber:   json['dayNumber']   as int? ?? 0,
     imageUrl:    json['imageUrl']    as String?,
     storagePath: json['storagePath'] as String?,
+    localPath:   json['localPath']   as String?,
   );
 
   Map<String, dynamic> toJson() => {
@@ -425,12 +443,14 @@ class PlantSnapshot {
     'dayNumber':   dayNumber,
     'imageUrl':    imageUrl,
     'storagePath': storagePath,
+    'localPath':   localPath,
   };
 
   static CaptureSlot _parseSlot(String? s) {
     switch (s) {
       case 'afternoon': return CaptureSlot.afternoon;
       case 'evening':   return CaptureSlot.evening;
+      case 'manual':    return CaptureSlot.manual;
       default:          return CaptureSlot.morning;
     }
   }
@@ -440,33 +460,49 @@ class PlantSnapshot {
       case CaptureSlot.morning:   return 'morning';
       case CaptureSlot.afternoon: return 'afternoon';
       case CaptureSlot.evening:   return 'evening';
+      case CaptureSlot.manual:    return 'manual';
     }
   }
 
-  String get slotLabel  => slot == CaptureSlot.morning   ? 'Morning'
-      : slot == CaptureSlot.afternoon ? 'Afternoon' : 'Evening';
-  String get slotTime   => slot == CaptureSlot.morning   ? '6:00 AM'
-      : slot == CaptureSlot.afternoon ? '2:00 PM'   : '10:00 PM';
+  /// For camera screen: returns localPath if available, otherwise imageUrl
+  String? get imagePath => localPath ?? imageUrl;
+
+  String get slotLabel => slot.label;
+  String get slotTime {
+    final h = capturedAt.hour.toString().padLeft(2, '0');
+    final m = capturedAt.minute.toString().padLeft(2, '0');
+    return '$h:$m';
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
 class DailyImageSet {
   final DateTime                        date;
   final int                             dayNumber;
-  final Map<CaptureSlot, PlantSnapshot> snapshots;
-  final AIGrowthReport?                 aiReport;
+  final Map<CaptureSlot, PlantSnapshot?> snapshots;
+  AIGrowthReport?                       aiReport;
 
-  const DailyImageSet({
+  DailyImageSet({
     required this.date,
     required this.dayNumber,
-    required this.snapshots,
+    Map<CaptureSlot, PlantSnapshot?>? snapshots,
     this.aiReport,
-  });
+  }) : snapshots = snapshots ?? {
+    CaptureSlot.morning: null,
+    CaptureSlot.afternoon: null,
+    CaptureSlot.evening: null,
+  };
 
-  bool get isComplete     => snapshots.length == 3;
-  int  get captureCount   => snapshots.length;
+  bool get isComplete => 
+      snapshots[CaptureSlot.morning] != null &&
+      snapshots[CaptureSlot.afternoon] != null &&
+      snapshots[CaptureSlot.evening] != null;
+
+  int get captureCount => snapshots.values.where((s) => s != null).length;
+
   List<CaptureSlot> get missingSlots =>
-      CaptureSlot.values.where((s) => !snapshots.containsKey(s)).toList();
+      [CaptureSlot.morning, CaptureSlot.afternoon, CaptureSlot.evening]
+          .where((s) => snapshots[s] == null).toList();
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -481,7 +517,7 @@ class AIGrowthReport {
   final String       leafAssessment;
   final String       colorAssessment;
   final String       stemAssessment;
-  final String       scoreTrend;       // '↑' '↓' '→'
+  final String       scoreTrend;
   final int?         previousDayScore;
   final DateTime     generatedAt;
 
@@ -555,13 +591,11 @@ class AIGrowthReport {
 }
 
 // ─────────────────────────────────────────────────────────────
-// SYSTEM STATUS (replaces BackupRecord + isConnected)
-// ─────────────────────────────────────────────────────────────
 class SystemStatus {
   final bool     isConnected;
-  final DateTime lastSeen;      // last ESP32 heartbeat
+  final DateTime lastSeen;
   final String   firmwareVersion;
-  final bool     isDataFresh;   // lastSeen within threshold
+  final bool     isDataFresh;
 
   const SystemStatus({
     required this.isConnected,
@@ -571,7 +605,7 @@ class SystemStatus {
   });
 
   factory SystemStatus.fromJson(Map<dynamic, dynamic> json) => SystemStatus(
-    isConnected:     true, // if we receive it, we're connected
+    isConnected:     true,
     lastSeen:        DateTime.fromMillisecondsSinceEpoch(
                          (json['lastSeen'] as num).toInt()),
     firmwareVersion: json['firmwareVersion'] as String? ?? '0.0.0',
@@ -589,8 +623,6 @@ class SystemStatus {
   );
 }
 
-// ─────────────────────────────────────────────────────────────
-// BACKUP RECORD
 // ─────────────────────────────────────────────────────────────
 class BackupRecord {
   final String   id;

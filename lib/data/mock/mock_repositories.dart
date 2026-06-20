@@ -1,12 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
 // MOCK REPOSITORIES
-//
-// These implement the abstract repository interfaces using
-// in-memory data and Stream controllers driven by a single
-// shared timer — replacing the old Timer-in-AppState pattern.
-//
-// To go live: replace MockSensorRepository with
-// FirebaseSensorRepository. Nothing else changes.
 // ═══════════════════════════════════════════════════════════════
 
 import 'dart:async';
@@ -15,7 +8,6 @@ import '../../domain/models/models.dart';
 import '../../domain/repositories/repositories.dart';
 
 // ── Shared tick source ────────────────────────────────────────
-// One timer drives all mock repositories so they stay in sync.
 class _MockClock {
   static final _MockClock _instance = _MockClock._();
   factory _MockClock() => _instance;
@@ -43,9 +35,7 @@ class _MockClock {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// MOCK SENSOR REPOSITORY
-// ─────────────────────────────────────────────────────────────
+// ── MOCK SENSOR REPOSITORY ─────────────────────────────────────
 class MockSensorRepository implements SensorRepository {
   final _random = Random();
   final _clock  = _MockClock();
@@ -155,9 +145,7 @@ class MockSensorRepository implements SensorRepository {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// MOCK DEVICE REPOSITORY
-// ─────────────────────────────────────────────────────────────
+// ── MOCK DEVICE REPOSITORY ─────────────────────────────────────
 class MockDeviceRepository implements DeviceRepository {
   final _deviceController = StreamController<List<DeviceState>>.broadcast();
 
@@ -231,9 +219,7 @@ class MockDeviceRepository implements DeviceRepository {
   void dispose() => _deviceController.close();
 }
 
-// ─────────────────────────────────────────────────────────────
-// MOCK ALERT REPOSITORY
-// ─────────────────────────────────────────────────────────────
+// ── MOCK ALERT REPOSITORY ──────────────────────────────────────
 class MockAlertRepository implements AlertRepository {
   final _controller    = StreamController<List<AlertRecord>>.broadcast();
   final List<AlertRecord> _alerts = [];
@@ -241,7 +227,6 @@ class MockAlertRepository implements AlertRepository {
   Set<String> _activeAlertSensorIds = {};
 
   MockAlertRepository(Stream<List<SensorReading>> sensorStream) {
-    // Listen to sensor stream to auto-generate and resolve alerts
     sensorStream.listen((readings) {
       bool changed = false;
       final now = DateTime.now();
@@ -264,7 +249,6 @@ class MockAlertRepository implements AlertRepository {
         } else {
           if (_activeAlertSensorIds.contains(r.id)) {
             _activeAlertSensorIds.remove(r.id);
-            // Resolve open alerts for this sensor
             for (int i = 0; i < _alerts.length; i++) {
               if (_alerts[i].sensorId == r.id && !_alerts[i].isResolved) {
                 _alerts[i] = _alerts[i].copyWith(
@@ -299,9 +283,7 @@ class MockAlertRepository implements AlertRepository {
   void dispose() => _controller.close();
 }
 
-// ─────────────────────────────────────────────────────────────
-// MOCK SYSTEM REPOSITORY
-// ─────────────────────────────────────────────────────────────
+// ── MOCK SYSTEM REPOSITORY ─────────────────────────────────────
 class MockSystemRepository implements SystemRepository {
   final _controller = StreamController<SystemStatus>.broadcast();
   final _clock      = _MockClock();
@@ -311,9 +293,7 @@ class MockSystemRepository implements SystemRepository {
 
   MockSystemRepository() {
     _clock.addSubscriber();
-    // Immediately emit connected
     _controller.add(_connected());
-    // Re-emit every tick
     _sub = _clock.ticks.listen((_) => _controller.add(_connected()));
   }
 
@@ -354,9 +334,7 @@ class MockSystemRepository implements SystemRepository {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// MOCK CAMERA REPOSITORY
-// ─────────────────────────────────────────────────────────────
+// ── MOCK CAMERA REPOSITORY ─────────────────────────────────────
 class MockCameraRepository implements CameraRepository {
   final _todayController = StreamController<DailyImageSet>.broadcast();
   final List<PlantSnapshot> _manualSnapshots = [];
@@ -386,8 +364,9 @@ class MockCameraRepository implements CameraRepository {
           : score > prevScore ? '↑'
           : score < prevScore ? '↓' : '→';
 
+      // Only create snapshots for SCHEDULED slots (not manual)
       final snaps = <CaptureSlot, PlantSnapshot>{};
-      for (final slot in CaptureSlot.values) {
+      for (final slot in [CaptureSlot.morning, CaptureSlot.afternoon, CaptureSlot.evening]) {
         snaps[slot] = PlantSnapshot(
           id: 'SNAP${++_snapshotIdCounter}',
           slot: slot,
@@ -442,6 +421,7 @@ class MockCameraRepository implements CameraRepository {
       case CaptureSlot.morning:   return DateTime(date.year, date.month, date.day, 6, 0);
       case CaptureSlot.afternoon: return DateTime(date.year, date.month, date.day, 14, 0);
       case CaptureSlot.evening:   return DateTime(date.year, date.month, date.day, 22, 0);
+      case CaptureSlot.manual:    return DateTime.now(); // Manual captures use current time
     }
   }
 
@@ -482,7 +462,7 @@ class MockCameraRepository implements CameraRepository {
   PlantSnapshot triggerManualCapture() {
     final snap = PlantSnapshot(
       id: 'SNAP${++_snapshotIdCounter}',
-      slot: CaptureSlot.morning,
+      slot: CaptureSlot.manual,  // ← FIXED: was CaptureSlot.morning
       capturedAt: DateTime.now(),
       isManual: true,
       dayNumber: todayImageSet.dayNumber,
@@ -495,9 +475,7 @@ class MockCameraRepository implements CameraRepository {
   void dispose() => _todayController.close();
 }
 
-// ─────────────────────────────────────────────────────────────
-// MOCK AUTH REPOSITORY
-// ─────────────────────────────────────────────────────────────
+// ── MOCK AUTH REPOSITORY ───────────────────────────────────────
 class MockAuthRepository implements AuthRepository {
   final _mockEmail = 'admin@autm.ph';
   final _mockPass  = 'tomato123';
