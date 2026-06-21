@@ -170,6 +170,7 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   Future<void> _logout() async {
+    GreenhouseService.reset(); // clear greenhouse connection state
     await _authRepo.signOut(); // ← real sign-out
     _navigatorKey.currentState?.pushAndRemoveUntil(
       _AppEntry._fade(

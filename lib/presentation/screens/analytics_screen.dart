@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../domain/models/sensor_data.dart';
+import '../../services/greenhouse_service.dart';
 import '../providers/app_state.dart';
 import '../theme/app_theme.dart';
 
@@ -205,8 +206,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       ),
       body: Consumer<AppState>(
         builder: (context, state, _) {
-          final reading = state.readings
-              .firstWhere((r) => r.id == _selectedSensor);
+          // Sensor readings stream in asynchronously. Until the selected
+          // sensor is present, show a loading/empty state instead of
+          // crashing on a `firstWhere` with no match.
+          final matches =
+              state.readings.where((r) => r.id == _selectedSensor).toList();
+          if (matches.isEmpty) {
+            return _buildNoReadingsState();
+          }
+          final reading = matches.first;
           final history = _history ?? state.historyFor(_selectedSensor);
           final filtered = _filterPoints(history.points);
           final color = statusColor(reading.status);
@@ -459,6 +467,37 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildNoReadingsState() {
+    final connected = GreenhouseService.isConnected;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              connected ? Icons.hourglass_empty : Icons.link_off,
+              color: AppTheme.inkFaint,
+              size: 40,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              connected
+                  ? 'Waiting for sensor data…'
+                  : 'Connect a greenhouse to view analytics',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: AppTheme.inkFaint,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

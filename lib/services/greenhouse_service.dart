@@ -14,8 +14,20 @@ class GreenhouseService {
 
   static String _currentUserRole = 'view'; // Defaults to safest view-only role
 
+  // Whether the signed-in user is linked to a greenhouse. Data screens and
+  // alert notifications gate on this so nothing is fetched/shown until the
+  // account is actually connected to a greenhouse.
+  static bool _connected = false;
+
   static String get currentUserRole => _currentUserRole;
   static bool get isViewOnly => _currentUserRole == 'view' || _currentUserRole == 'viewer';
+  static bool get isConnected => _connected;
+
+  // Clear connection state (e.g. on logout) so the next account starts clean.
+  static void reset() {
+    _connected = false;
+    _currentUserRole = 'view';
+  }
 
   // ── Generate a unique join code like "AUTM-2847" ────────────
   static String _generateCode() {
@@ -41,6 +53,7 @@ class GreenhouseService {
       
       // Load current user's active role from DB
       _currentUserRole = greenhouses.values.first as String? ?? 'view';
+      _connected = true;
 
       // Get the join code for that greenhouse
       final codeSnap = await _db.child('/greenhouses/$greenhouseId/joinCode').get();
@@ -50,6 +63,7 @@ class GreenhouseService {
     // New user — auto-create a greenhouse for them
     final code = await _createGreenhouse(userId);
     _currentUserRole = 'owner';
+    _connected = true;
     return code;
   }
 
@@ -149,6 +163,7 @@ class GreenhouseService {
       // Link guest user -> greenhouse with selected role (control or view)
       await _db.child('/users/${user.uid}/greenhouses/$greenhouseId').set(role);
       _currentUserRole = role;
+      _connected = true;
 
       // Get greenhouse name
       final nameSnap = await _db.child('/greenhouses/$greenhouseId/name').get();
@@ -176,6 +191,7 @@ class GreenhouseService {
     // Link user -> greenhouse as view-only fallback
     await _db.child('/users/${user.uid}/greenhouses/$greenhouseId').set('view');
     _currentUserRole = 'view';
+    _connected = true;
 
     // Get greenhouse name
     final nameSnap = await _db.child('/greenhouses/$greenhouseId/name').get();
@@ -209,6 +225,7 @@ class GreenhouseService {
 
     final greenhouses = Map<String, dynamic>.from(userSnap.value as Map);
     _currentUserRole = greenhouses.values.first as String? ?? 'view';
+    _connected = true;
     return _currentUserRole;
   }
 }

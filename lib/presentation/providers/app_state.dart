@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../domain/models/sensor_data.dart';
 import '../../domain/repositories/repositories.dart';
 import '../../services/notification_service.dart';
+import '../../services/greenhouse_service.dart';
 
 class AppState extends ChangeNotifier {
   final SensorRepository _sensorRepo;
@@ -57,6 +58,11 @@ class AppState extends ChangeNotifier {
         final previousIds = _alerts.map((x) => x.id).toSet();
         _alerts = a;
         notifyListeners();
+
+        // Only raise system notifications when the account is actually
+        // connected to a greenhouse. Otherwise a brand-new (unlinked)
+        // account would be notified about a greenhouse it doesn't own.
+        if (!GreenhouseService.isConnected) return;
 
         final now = DateTime.now();
         // Renotify every 2 min so dismissed banners reappear.

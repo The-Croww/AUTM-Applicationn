@@ -63,38 +63,81 @@ class FirebaseSensorRepository implements SensorRepository {
   StreamSubscription? _sub;
   StreamController<List<SensorReading>>? _controller;
 
-  // ── Config cache (loaded once on init) ────────────────────────
+  // ── Config cache (loaded lazily, refreshed in the background) ──
   Map<String, dynamic> _sensorConfig = {};
+
+  // ── Latest raw sensor snapshot, kept so we can re-emit once the
+  //    config (labels/thresholds) arrives without waiting on it. ──
+  Map<String, dynamic>? _latestRaw;
 
   @override
   Stream<List<SensorReading>> get sensorStream {
-    final controller = StreamController<List<SensorReading>>.broadcast();
+    // Reuse a single persistent controller so repeated getter access
+    // never spins up duplicate listeners.
+    final existing = _controller;
+    if (existing != null) return existing.stream;
 
-    // Load config once
-    _db.child('/config/sensors').get().then((snap) {
-      if (snap.exists && snap.value != null) {
-        _sensorConfig = Map<String, dynamic>.from(snap.value as Map);
-      }
+    final controller = StreamController<List<SensorReading>>.broadcast(
+      onCancel: () {
+        _sub?.cancel();
+        _sub = null;
+      },
+    );
+    _controller = controller;
 
-      // Then listen to live readings
-      _sub = _db.child('/sensors').onValue.listen((event) {
+    // Attach the live /sensors listener immediately — do NOT gate it
+    // behind the one-time config read. If config is unavailable the
+    // readings still render with sensible defaults, and the listener
+    // auto-recovers once Firebase auth becomes available.
+    _sub = _db.child('/sensors').onValue.listen(
+      (event) {
         if (event.snapshot.exists && event.snapshot.value != null) {
-          final data = Map<String, dynamic>.from(event.snapshot.value as Map);
-          final readings = data.entries.map((e) {
-            return SensorReading.fromJson(
-              e.key,
-              e.value as Map,
-              _sensorConfig[e.key] as Map? ?? {},
-            );
-          }).toList();
-          controller.add(readings);
+          _latestRaw = Map<String, dynamic>.from(event.snapshot.value as Map);
+          controller.add(_buildReadings(_latestRaw!));
         } else {
-          controller.add([]);
+          _latestRaw = {};
+          controller.add(const []);
         }
-      });
-    });
+      },
+      onError: (Object e) {
+        // Surface the error without tearing down the stream so a
+        // transient (e.g. pre-auth) failure can recover.
+        if (!controller.isClosed) controller.addError(e);
+      },
+    );
+
+    // Load sensor config in parallel. On success, re-emit the latest
+    // readings so labels/units/thresholds populate retroactively.
+    _loadConfig();
 
     return controller.stream;
+  }
+
+  Future<void> _loadConfig() async {
+    try {
+      final snap = await _db.child('/config/sensors').get();
+      if (snap.exists && snap.value != null) {
+        _sensorConfig = Map<String, dynamic>.from(snap.value as Map);
+        final raw = _latestRaw;
+        final controller = _controller;
+        if (raw != null && controller != null && !controller.isClosed) {
+          controller.add(_buildReadings(raw));
+        }
+      }
+    } catch (_) {
+      // Missing/denied config is non-fatal: readings fall back to
+      // defaults. A later sensor event will retry via _latestRaw.
+    }
+  }
+
+  List<SensorReading> _buildReadings(Map<String, dynamic> data) {
+    return data.entries.map((e) {
+      return SensorReading.fromJson(
+        e.key,
+        e.value as Map,
+        _sensorConfig[e.key] as Map? ?? {},
+      );
+    }).toList();
   }
 
   @override
