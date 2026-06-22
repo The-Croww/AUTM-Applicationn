@@ -1,3 +1,5 @@
+//main.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -5,13 +7,15 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 import 'data/mock/mock_repositories.dart';
-import 'data/firebase/firebase_repositories.dart';   // ← FirebaseAuthRepository
+import 'data/firebase/firebase_repositories.dart';
 import 'presentation/theme/app_theme.dart';
 import 'presentation/providers/app_state.dart';
 import 'services/notification_service.dart';
+import 'domain/models/sensor_data.dart';
 
-import 'presentation/screens/splash_screen.dart'   as splash;
-import 'presentation/screens/login_screen.dart'    as login;
+import 'presentation/screens/splash_screen.dart' as splash;
+import 'presentation/screens/login_screen.dart' as login;
+import 'presentation/screens/home_screen.dart';        
 import 'presentation/screens/dashboard_screen.dart';
 import 'presentation/screens/camera_screen.dart';
 import 'presentation/screens/control_screen.dart';
@@ -20,29 +24,25 @@ import 'presentation/screens/alerts_screen.dart';
 
 final _navigatorKey = GlobalKey<NavigatorState>();
 
-// ── Shared auth repo instance (used in logout too) ────────────
+// Shared auth repo instance
 final _authRepo = FirebaseAuthRepository();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // ── Initialize Firebase ───────────────────────────────────────
   await Firebase.initializeApp();
 
-  // ── Wire repositories ─────────────────────────────────────────
-  // Using Firebase repositories for real ESP32 data
   final sensorRepo = FirebaseSensorRepository();
   final deviceRepo = FirebaseDeviceRepository();
-  final alertRepo  = FirebaseAlertRepository();
+  final alertRepo = FirebaseAlertRepository();
   final systemRepo = FirebaseSystemRepository();
-  final cameraRepo = MockCameraRepository(); // Camera still uses mock for now
+  final cameraRepo = MockCameraRepository();
 
   await NotificationService.init();
 
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor:                    Colors.transparent,
-    statusBarIconBrightness:           Brightness.dark,
-    systemNavigationBarColor:          AppTheme.bg0,
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.dark,
+    systemNavigationBarColor: AppTheme.bg0,
     systemNavigationBarIconBrightness: Brightness.dark,
   ));
 
@@ -51,7 +51,7 @@ void main() async {
       create: (_) => AppState(
         sensorRepository: sensorRepo,
         deviceRepository: deviceRepo,
-        alertRepository:  alertRepo,
+        alertRepository: alertRepo,
         systemRepository: systemRepo,
         cameraRepository: cameraRepo,
       ),
@@ -60,51 +60,44 @@ void main() async {
   );
 }
 
-// ─────────────────────────────────────────────────────────────
 class AuTOMATOApp extends StatelessWidget {
   const AuTOMATOApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      navigatorKey:               _navigatorKey,
-      title:                      'AuTOMATO',
+      navigatorKey: _navigatorKey,
+      title: 'AuTOMATO',
       debugShowCheckedModeBanner: false,
-      theme:                      AppTheme.darkTheme,
-      home:                       const _AppEntry(),
+      theme: AppTheme.darkTheme,
+      home: const _AppEntry(),
     );
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// _AppEntry — Splash → (auto-login check) → Login OR Dashboard
-// ─────────────────────────────────────────────────────────────
 class _AppEntry extends StatelessWidget {
   const _AppEntry();
 
   static Route _fade(Widget page) => PageRouteBuilder(
-        pageBuilder:        (_, __, ___) => page,
+        pageBuilder: (_, __, ___) => page,
         transitionDuration: const Duration(milliseconds: 500),
         transitionsBuilder: (_, anim, __, child) =>
             FadeTransition(opacity: anim, child: child),
       );
 
-  // Called after splash finishes — routes to Dashboard if already
-  // signed in, otherwise shows LoginScreen.
   void _onSplashFinished(BuildContext context) {
     final alreadySignedIn = _authRepo.currentUser != null;
 
     if (alreadySignedIn) {
-      // Skip login — go straight to dashboard
       _navigatorKey.currentState?.pushReplacement(_fade(const HomeShell()));
     } else {
       Navigator.of(context).pushReplacement(
         _fade(
           login.LoginScreen(
-            authRepository:       _authRepo,          // ← passed in
-            onLoginSuccess:       () => _navigatorKey.currentState
+            authRepository: _authRepo,
+            onLoginSuccess: () => _navigatorKey.currentState
                 ?.pushReplacement(_fade(const HomeShell())),
-            onNavigateToRegister: () { /* wire later */ },
+            onNavigateToRegister: () {},
           ),
         ),
       );
@@ -119,9 +112,6 @@ class _AppEntry extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// HomeShell — unchanged except logout now calls signOut()
-// ─────────────────────────────────────────────────────────────
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
   @override
@@ -133,22 +123,23 @@ class _HomeShellState extends State<HomeShell> {
 
   Widget _screen(int i) {
     switch (i) {
-      case 0:  return const DashboardScreen();
-      case 1:  return const CameraScreen();
-      case 2:  return const AlertsScreen();
-      case 3:  return const ControlScreen();
-      default: return const DashboardScreen();
+      case 0: return const HomeScreen();        // NEW - Scene card, actions, trends
+      case 1: return const DashboardScreen();     // Reverted - Health score, cards
+      case 2: return const CameraScreen();
+      case 3: return const AlertsScreen();
+      case 4: return const ControlScreen();
+      default: return const HomeScreen();
     }
   }
 
   Future<void> _logout() async {
-    await _authRepo.signOut();                        // ← real sign-out
+    await _authRepo.signOut();
     _navigatorKey.currentState?.pushAndRemoveUntil(
-      _AppEntry._fade(
-        login.LoginScreen(
-          authRepository:       _authRepo,
-          onLoginSuccess:       () => _navigatorKey.currentState
-              ?.pushReplacement(_AppEntry._fade(const HomeShell())),
+      MaterialPageRoute(
+        builder: (_) => login.LoginScreen(
+          authRepository: _authRepo,
+          onLoginSuccess: () => _navigatorKey.currentState
+              ?.pushReplacement(MaterialPageRoute(builder: (_) => const HomeShell())),
           onNavigateToRegister: () {},
         ),
       ),
@@ -158,7 +149,7 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
-    final state      = context.watch<AppState>();
+    final state = context.watch<AppState>();
     final alertCount = state.alertCount;
 
     return Scaffold(
@@ -168,17 +159,19 @@ class _HomeShellState extends State<HomeShell> {
         title: Text(
           'automato',
           style: GoogleFonts.sora(
-            fontSize:      28,
-            fontWeight:    FontWeight.w800,
-            color:         AppTheme.olive,
+            fontSize: 28,
+            fontWeight: FontWeight.w800,
+            color: AppTheme.olive,
             letterSpacing: -1,
           ),
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.bar_chart_outlined, color: AppTheme.inkMid),
-            onPressed: () => Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const AnalyticsScreen())),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AnalyticsScreen()),
+            ),
           ),
           const SizedBox(width: 4),
         ],
@@ -192,22 +185,31 @@ class _HomeShellState extends State<HomeShell> {
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(24, 32, 0, 24),
                 decoration: const BoxDecoration(
-                  border: Border(bottom: BorderSide(color: AppTheme.divider, width: 2)),
+                  border: Border(
+                    bottom: BorderSide(color: AppTheme.divider, width: 2),
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('automato',
-                        style: GoogleFonts.sora(
-                          fontSize: 22, fontWeight: FontWeight.w800,
-                          color: AppTheme.olive, letterSpacing: -0.5,
-                        )),
+                    Text(
+                      'automato',
+                      style: GoogleFonts.sora(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.olive,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
                     const SizedBox(height: 4),
-                    Text('Smart Greenhouse',
-                        style: TextStyle(
-                          fontSize: 13, color: AppTheme.inkFaint,
-                          fontWeight: FontWeight.w500,
-                        )),
+                    Text(
+                      'Smart Greenhouse',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.inkFaint,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -217,12 +219,15 @@ class _HomeShellState extends State<HomeShell> {
                   children: [
                     ListTile(
                       leading: const Icon(Icons.logout, color: AppTheme.statusAlert),
-                      title: Text('Log out',
-                          style: TextStyle(
-                            fontSize: 15, fontWeight: FontWeight.w600,
-                            color: AppTheme.statusAlert,
-                          )),
-                      onTap: _logout,                 // ← calls real signOut
+                      title: Text(
+                        'Log out',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.statusAlert,
+                        ),
+                      ),
+                      onTap: _logout,
                     ),
                   ],
                 ),
@@ -231,25 +236,33 @@ class _HomeShellState extends State<HomeShell> {
           ),
         ),
       ),
-      body: IndexedStack(index: _index, children: List.generate(4, _screen)),
+      body: IndexedStack(index: _index, children: List.generate(5, _screen)),  // Changed to 5
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           border: Border(top: BorderSide(color: AppTheme.divider, width: 1)),
         ),
         child: BottomNavigationBar(
-          currentIndex:         _index,
-          onTap:                (i) => setState(() => _index = i),
-          type:                 BottomNavigationBarType.fixed,
-          showSelectedLabels:   true,
+          currentIndex: _index,
+          onTap: (i) => setState(() => _index = i),
+          type: BottomNavigationBarType.fixed,
+          showSelectedLabels: true,
           showUnselectedLabels: true,
-          selectedItemColor:    AppTheme.olive,
-          unselectedItemColor:  AppTheme.inkMid,
-          backgroundColor:      AppTheme.bg0,
-          elevation:            0,
-          selectedLabelStyle:
-              const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+          selectedItemColor: AppTheme.olive,
+          unselectedItemColor: AppTheme.inkMid,
+          backgroundColor: AppTheme.bg0,
+          elevation: 0,
+          selectedLabelStyle: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
           unselectedLabelStyle: const TextStyle(fontSize: 11),
           items: [
+            // NEW: Home tab
+            const BottomNavigationBarItem(
+              icon: Icon(Icons.home_outlined),
+              activeIcon: Icon(Icons.home),
+              label: 'Home',
+            ),
             const BottomNavigationBarItem(
               icon: Icon(Icons.dashboard_outlined),
               activeIcon: Icon(Icons.dashboard),
@@ -262,17 +275,33 @@ class _HomeShellState extends State<HomeShell> {
             ),
             BottomNavigationBarItem(
               label: 'Alerts',
-              icon: Stack(clipBehavior: Clip.none, children: [
-                const Icon(Icons.notifications_outlined),
-                if (alertCount > 0)
-                  Positioned(right: -6, top: -6, child: _Badge(count: alertCount)),
-              ]),
-              activeIcon: Stack(clipBehavior: Clip.none, children: [
-                Icon(Icons.notifications,
-                    color: alertCount > 0 ? AppTheme.statusAlert : null),
-                if (alertCount > 0)
-                  Positioned(right: -6, top: -6, child: _Badge(count: alertCount)),
-              ]),
+              icon: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  const Icon(Icons.notifications_outlined),
+                  if (alertCount > 0)
+                    Positioned(
+                      right: -6,
+                      top: -6,
+                      child: _Badge(count: alertCount),
+                    ),
+                ],
+              ),
+              activeIcon: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Icon(
+                    Icons.notifications,
+                    color: alertCount > 0 ? AppTheme.statusAlert : null,
+                  ),
+                  if (alertCount > 0)
+                    Positioned(
+                      right: -6,
+                      top: -6,
+                      child: _Badge(count: alertCount),
+                    ),
+                ],
+              ),
             ),
             const BottomNavigationBarItem(
               icon: Icon(Icons.tune_outlined),
@@ -289,21 +318,27 @@ class _HomeShellState extends State<HomeShell> {
 class _Badge extends StatelessWidget {
   final int count;
   const _Badge({required this.count});
+
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(2),
       constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
       decoration: BoxDecoration(
-        color: AppTheme.statusAlert, shape: BoxShape.circle,
+        color: AppTheme.statusAlert,
+        shape: BoxShape.circle,
         border: Border.all(color: AppTheme.bg0, width: 1.5),
       ),
       child: Center(
-        child: Text(count > 99 ? '99+' : '$count',
-            style: const TextStyle(
-              color: AppTheme.bg0, fontSize: 9,
-              fontWeight: FontWeight.w900, height: 1,
-            )),
+        child: Text(
+          count > 99 ? '99+' : '$count',
+          style: const TextStyle(
+            color: AppTheme.bg0,
+            fontSize: 9,
+            fontWeight: FontWeight.w900,
+            height: 1,
+          ),
+        ),
       ),
     );
   }

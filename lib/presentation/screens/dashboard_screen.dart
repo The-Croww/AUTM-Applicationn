@@ -1,3 +1,5 @@
+//dashboard_screen.dart
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -10,8 +12,7 @@ import 'package:automato/presentation/screens/alerts_screen.dart';
 import 'package:automato/presentation/screens/analytics_screen.dart';
 
 // ─────────────────────────────────────────────────────────────
-// DASHBOARD — SMOOTH LIVE TIMER EDITION
-// Time-ago updates every second with smooth transitions
+// DASHBOARD — Original Live Data Only (No Scenario/MP4)
 // ─────────────────────────────────────────────────────────────
 
 class DashboardScreen extends StatefulWidget {
@@ -100,7 +101,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
                 const Spacer(),
-                // ── SMOOTH LIVE TIMER ──────────────────────
                 _TimeAgoLive(timestamp: lastSync),
               ],
             ),
@@ -163,6 +163,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       ),
     );
+  }
+
+  String _getStatusText(int percent) {
+    if (percent >= 90) return 'Excellent / Optimal';
+    if (percent >= 75) return 'Ready / Healthy';
+    if (percent >= 50) return 'Warning / At Risk';
+    return 'Critical / Error';
   }
 
   Widget _buildSensorsSectionHeader() {
@@ -310,19 +317,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
-
-  String _getStatusText(int percent) {
-    if (percent >= 90) return 'Excellent / Optimal';
-    if (percent >= 75) return 'Ready / Healthy';
-    if (percent >= 50) return 'Warning / At Risk';
-    return 'Critical / Error';
-  }
 }
 
 // ═══════════════════════════════════════════════════════════
-// SMOOTH LIVE TIMER WIDGET
-// Updates every second with smooth transitions
+// EXISTING WIDGETS (unchanged)
 // ═══════════════════════════════════════════════════════════
+
 class _TimeAgoLive extends StatefulWidget {
   final DateTime timestamp;
 
@@ -401,10 +401,6 @@ class _TimeAgoLiveState extends State<_TimeAgoLive> {
     );
   }
 }
-
-// ═══════════════════════════════════════════════════════════
-// EXTRACTED WIDGET CLASSES
-// ═══════════════════════════════════════════════════════════
 
 class _HealthGridShimmer extends StatelessWidget {
   const _HealthGridShimmer();
