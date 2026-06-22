@@ -191,7 +191,17 @@ class GoogleDriveService {
   }
 
   // ─────────────────────────────────────────────────────────────
+  // ✅ FIXED: downloadFile — alias for downloadImage that returns Uint8List
+  // This is what app_state.dart._loadImageBytes expects
+  // ─────────────────────────────────────────────────────────────
+  Future<Uint8List> downloadFile(String fileIdOrUrl) async {
+    final bytes = await downloadImage(fileIdOrUrl);
+    return Uint8List.fromList(bytes);
+  }
+
+  // ─────────────────────────────────────────────────────────────
   // ✅ FIXED: downloadImage — handles both fileId and URL
+  // Returns List<int> for backward compatibility, downloadFile wraps to Uint8List
   // ─────────────────────────────────────────────────────────────
   Future<List<int>> downloadImage(String fileIdOrUrl) async {
     await _ensureAuth();

@@ -506,6 +506,53 @@ class DailyImageSet {
 }
 
 // ─────────────────────────────────────────────────────────────
+// ML FEATURES — Cloud Vision output container
+// ─────────────────────────────────────────────────────────────
+class MLPlantFeatures {
+  final double leafHealthScore;   // 0-100
+  final double colorIndex;          // 0-100 (greenness)
+  final double stemVigor;           // 0-100
+  final double pestSeverity;        // 0-100
+  final double brownScore;          // 0-100 (necrosis/browning)
+  final List<String> detectedPests;
+  final List<String> labels;        // Raw Cloud Vision labels
+  final String growthStage;           // seedling | vegetative | flowering | fruiting
+
+  const MLPlantFeatures({
+    this.leafHealthScore = 70,
+    this.colorIndex = 70,
+    this.stemVigor = 70,
+    this.pestSeverity = 0,
+    this.brownScore = 0,
+    this.detectedPests = const [],
+    this.labels = const [],
+    this.growthStage = 'vegetative',
+  });
+
+  factory MLPlantFeatures.fromJson(Map<dynamic, dynamic> json) => MLPlantFeatures(
+    leafHealthScore: (json['leafHealthScore'] as num?)?.toDouble() ?? 70,
+    colorIndex:      (json['colorIndex']      as num?)?.toDouble() ?? 70,
+    stemVigor:       (json['stemVigor']       as num?)?.toDouble() ?? 70,
+    pestSeverity:    (json['pestSeverity']    as num?)?.toDouble() ?? 0,
+    brownScore:      (json['brownScore']      as num?)?.toDouble() ?? 0,
+    detectedPests:   (json['detectedPests']   as List<dynamic>?)?.cast<String>() ?? [],
+    labels:          (json['labels']          as List<dynamic>?)?.cast<String>() ?? [],
+    growthStage:     json['growthStage']      as String? ?? 'vegetative',
+  );
+
+  Map<String, dynamic> toJson() => {
+    'leafHealthScore': leafHealthScore,
+    'colorIndex':      colorIndex,
+    'stemVigor':       stemVigor,
+    'pestSeverity':    pestSeverity,
+    'brownScore':      brownScore,
+    'detectedPests':   detectedPests,
+    'labels':          labels,
+    'growthStage':     growthStage,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
 class AIGrowthReport {
   final String       id;
   final DateTime     date;
@@ -521,6 +568,11 @@ class AIGrowthReport {
   final int?         previousDayScore;
   final DateTime     generatedAt;
 
+  // NEW: ML + Sensor fusion metadata
+  final MLPlantFeatures? mlFeatures;
+  final List<String> detectedRisks;
+  final List<SensorReading> sensorSnapshot;
+
   const AIGrowthReport({
     required this.id,
     required this.date,
@@ -535,27 +587,44 @@ class AIGrowthReport {
     required this.scoreTrend,
     this.previousDayScore,
     required this.generatedAt,
+    this.mlFeatures,
+    this.detectedRisks = const [],
+    this.sensorSnapshot = const [],
   });
 
-  factory AIGrowthReport.fromJson(String id, Map<dynamic, dynamic> json) => AIGrowthReport(
-    id:               id,
-    date:             DateTime.fromMillisecondsSinceEpoch(
-                          (json['date'] as num).toInt()),
-    dayNumber:        json['dayNumber']        as int? ?? 0,
-    growthScore:      json['growthScore']      as int? ?? 0,
-    healthStatus:     _parseHealth(json['healthStatus'] as String?),
-    summary:          json['summary']          as String? ?? '',
-    recommendations:  json['recommendations']  as String? ?? '',
-    leafAssessment:   json['leafAssessment']   as String? ?? '',
-    colorAssessment:  json['colorAssessment']  as String? ?? '',
-    stemAssessment:   json['stemAssessment']   as String? ?? '',
-    scoreTrend:       json['scoreTrend']       as String? ?? '→',
-    previousDayScore: json['previousDayScore'] as int?,
-    generatedAt:      DateTime.fromMillisecondsSinceEpoch(
-                          (json['generatedAt'] as num).toInt()),
-  );
+  factory AIGrowthReport.fromJson(String id, Map<dynamic, dynamic> json) {
+    final mlData = json['mlFeatures'] as Map<dynamic, dynamic>?;
+
+    return AIGrowthReport(
+      id:               id,
+      date:             DateTime.fromMillisecondsSinceEpoch(
+                            (json['date'] as num).toInt()),
+      dayNumber:        json['dayNumber']        as int? ?? 0,
+      growthScore:      json['growthScore']      as int? ?? 0,
+      healthStatus:     _parseHealth(json['healthStatus'] as String?),
+      summary:          json['summary']          as String? ?? '',
+      recommendations:  json['recommendations']  as String? ?? '',
+      leafAssessment:   json['leafAssessment']   as String? ?? '',
+      colorAssessment:  json['colorAssessment']  as String? ?? '',
+      stemAssessment:   json['stemAssessment']   as String? ?? '',
+      scoreTrend:       json['scoreTrend']       as String? ?? '→',
+      previousDayScore: json['previousDayScore'] as int?,
+      generatedAt:      DateTime.fromMillisecondsSinceEpoch(
+                            (json['generatedAt'] as num).toInt()),
+      mlFeatures:       mlData != null ? MLPlantFeatures.fromJson(mlData) : null,
+      detectedRisks:  (json['detectedRisks'] as List<dynamic>?)?.cast<String>() ?? [],
+      sensorSnapshot:   (json['sensorSnapshot'] as List<dynamic>?)
+          ?.map((s) => SensorReading.fromJson(
+            s['id'] as String? ?? 'unknown',
+            s as Map<dynamic, dynamic>,
+            s['config'] as Map<dynamic, dynamic>? ?? {},
+          ))
+          .toList() ?? [],
+    );
+  }
 
   Map<String, dynamic> toJson() => {
+    'id':               id,
     'date':             date.millisecondsSinceEpoch,
     'dayNumber':        dayNumber,
     'growthScore':      growthScore,
@@ -568,6 +637,9 @@ class AIGrowthReport {
     'scoreTrend':       scoreTrend,
     'previousDayScore': previousDayScore,
     'generatedAt':      generatedAt.millisecondsSinceEpoch,
+    'mlFeatures':       mlFeatures?.toJson(),
+    'detectedRisks':    detectedRisks,
+    'sensorSnapshot':   sensorSnapshot.map((s) => s.toJson()).toList(),
   };
 
   static HealthStatus _parseHealth(String? s) {

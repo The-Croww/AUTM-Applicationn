@@ -1,3 +1,5 @@
+//camera_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lottie/lottie.dart';
@@ -11,6 +13,7 @@ import 'package:automato/presentation/widgets/sensor_card.dart';
 import '../../services/google_drive_service.dart';
 import 'dart:typed_data';
 import 'dart:io';
+import 'debug_ml_screen.dart';
 
 // ─────────────────────────────────────────────────────────────
 // CAMERA FEED SCREEN
@@ -1894,6 +1897,15 @@ class _DayDetailScreen extends StatelessWidget {
           style: const TextStyle(fontWeight: FontWeight.w900),
         ),
         backgroundColor: const Color(0xFFF4F2EE),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.bug_report, color: Color(0xFF132F28)),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => DebugMLScreen()),
+            ),
+          ),
+        ],
       ),
       body: ListView(
         physics: const BouncingScrollPhysics(),
