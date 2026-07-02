@@ -1,19 +1,9 @@
 // ═══════════════════════════════════════════════════════════════
 // NOTIFICATION SERVICE
-//
-// Wraps flutter_local_notifications so the rest of the app only
-// needs to call init() once and showAlertNotification() per alert.
-//
-// REQUIRED NATIVE SETUP:
-//   Android — add to android/app/src/main/AndroidManifest.xml:
-//     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
-//     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-//
-//   iOS — add to ios/Runner/Info.plist:
-//     <key>UIBackgroundModes</key>
-//     <array><string>fetch</string><string>remote-notification</string></array>
 // ═══════════════════════════════════════════════════════════════
 
+import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../domain/models/models.dart';
@@ -25,8 +15,13 @@ class NotificationService {
   static const _channelName = 'AuTOMATO Alerts';
   static const _channelDesc = 'Real-time sensor alert notifications';
 
+  // ═══════════════════════════════════════════════════════════════
+  // MATCHES pubspec.yaml: android: "launcher_icon"
+  // ═══════════════════════════════════════════════════════════════
+  static const _notificationIcon = '@mipmap/launcher_icon';
+
   static Future<void> init() async {
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings(_notificationIcon);
     const iosSettings     = DarwinInitializationSettings(
       requestAlertPermission:     true,
       requestBadgePermission:     true,
@@ -37,9 +32,11 @@ class NotificationService {
       iOS:     iosSettings,
     );
 
-    await _plugin.initialize(initSettings);
+    await _plugin.initialize(
+      initSettings,
+      onDidReceiveNotificationResponse: _onNotificationTap,
+    );
 
-    // Create Android channel with badge/dot support.
     const androidChannel = AndroidNotificationChannel(
       _channelId,
       _channelName,
@@ -53,8 +50,6 @@ class NotificationService {
     await androidPlugin?.requestNotificationsPermission();
   }
 
-  /// Updates the iOS app-icon badge count (e.g. 3 unread alerts).
-  /// Silently fails on Android or if the plugin version doesn't expose the API.
   static Future<void> updateBadgeCount(int count) async {
     try {
       final iOSPlugin = _plugin
@@ -63,15 +58,16 @@ class NotificationService {
         final dynamic d = iOSPlugin;
         await d.setBadgeCount(count);
       }
-    } catch (_) {
-      // Badge API not available on this platform / plugin version.
-    }
+    } catch (_) {}
   }
 
   static Future<void> showAlertNotification(AlertRecord alert,
       {int badgeCount = 0}) async {
-    final byteData = await rootBundle.load('assets/icon/AUTM-Logo.jpg');
-    final logoBytes = byteData.buffer.asUint8List();
+    Uint8List? logoBytes;
+    try {
+      final byteData = await rootBundle.load('assets/icon/AUTM-Logo.png');
+      logoBytes = byteData.buffer.asUint8List();
+    } catch (_) {}
 
     final androidDetails = AndroidNotificationDetails(
       _channelId,
@@ -80,8 +76,8 @@ class NotificationService {
       importance:         Importance.max,
       priority:           Priority.high,
       ticker:             'AuTOMATO Alert',
-      largeIcon:            ByteArrayAndroidBitmap(logoBytes),
-      styleInformation:     BigTextStyleInformation(
+      largeIcon:          logoBytes != null ? ByteArrayAndroidBitmap(logoBytes) : null,
+      styleInformation:   BigTextStyleInformation(
         _bodyFor(alert),
         contentTitle: _titleFor(alert),
         summaryText:  'AuTOMATO Sensor Alert',
@@ -101,12 +97,101 @@ class NotificationService {
     );
 
     await _plugin.show(
-      alert.id.hashCode & 0x7FFFFFFF,   // stable positive int ID derived from alert id
+      alert.id.hashCode & 0x7FFFFFFF,
       _titleFor(alert),
       _bodyFor(alert),
       details,
-      payload: alert.id,
+      payload: jsonEncode({'type': 'alert', 'alertId': alert.id}),
     );
+  }
+
+  static Future<void> showDeviceTriggerNotification({
+    required String deviceLabel,
+    required bool isOn,
+    String? reason,
+  }) async {
+    final title = isOn ? 'System Activated' : 'System Deactivated';
+    final body = reason != null
+        ? '$deviceLabel turned ${isOn ? "ON" : "OFF"} via $reason.'
+        : '$deviceLabel is now ${isOn ? "ON" : "OFF"}.'; 
+
+    final androidDetails = AndroidNotificationDetails(
+      _channelId,
+      _channelName,
+      channelDescription: _channelDesc,
+      importance: Importance.max,
+      priority: Priority.high,
+      styleInformation: BigTextStyleInformation(
+        body,
+        contentTitle: title,
+        summaryText: 'AuTOMATO Automation',
+      ),
+    );
+
+    final details = NotificationDetails(
+      android: androidDetails,
+      iOS: const DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      ),
+    );
+
+    await _plugin.show(
+      deviceLabel.hashCode & 0x7FFFFFFF,
+      title,
+      body,
+      details,
+    );
+  }
+
+  static Future<void> showDailyHealthNotification(int percent) async {
+    const title = 'AuTOMATO Morning Report';
+    final body = 'Greenhouse is $percent% optimal. Tap to view today\'s summary.';
+
+    final androidDetails = AndroidNotificationDetails(
+      _channelId,
+      _channelName,
+      channelDescription: _channelDesc,
+      importance: Importance.max,
+      priority: Priority.high,
+      styleInformation: BigTextStyleInformation(
+        body,
+        contentTitle: title,
+        summaryText: 'Daily Greenhouse Summary',
+      ),
+    );
+
+    final details = NotificationDetails(
+      android: androidDetails,
+      iOS: const DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      ),
+    );
+
+    await _plugin.show(
+      'daily_report'.hashCode & 0x7FFFFFFF,
+      title,
+      body,
+      details,
+    );
+  }
+
+  static void _onNotificationTap(NotificationResponse response) {
+    if (response.payload == null) return;
+    try {
+      final data = jsonDecode(response.payload!) as Map<String, dynamic>;
+      _handleNotificationTap(data);
+    } catch (_) {}
+  }
+
+  static void _handleNotificationTap(Map<String, dynamic> data) {
+    final type = data['type'] as String?;
+    if (type == 'alert') {
+      // Navigate to alert detail
+    }
   }
 
   static String _titleFor(AlertRecord alert) {
