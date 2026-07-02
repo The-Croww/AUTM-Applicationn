@@ -1,12 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
 // MOCK REPOSITORIES
-//
-// These implement the abstract repository interfaces using
-// in-memory data and Stream controllers driven by a single
-// shared timer — replacing the old Timer-in-AppState pattern.
-//
-// To go live: replace MockSensorRepository with
-// FirebaseSensorRepository. Nothing else changes.
 // ═══════════════════════════════════════════════════════════════
 
 import 'dart:async';
@@ -15,12 +8,10 @@ import '../../domain/models/models.dart';
 import '../../domain/repositories/repositories.dart';
 
 // ── Shared tick source ────────────────────────────────────────
-// One timer drives all mock repositories so they stay in sync.
 class _MockClock {
   static final _MockClock _instance = _MockClock._();
   factory _MockClock() => _instance;
   _MockClock._();
-
   final _controller = StreamController<DateTime>.broadcast();
   Timer? _timer;
   int _subscriberCount = 0;
@@ -44,15 +35,12 @@ class _MockClock {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// MOCK SENSOR REPOSITORY
-// ─────────────────────────────────────────────────────────────
+// ── MOCK SENSOR REPOSITORY ─────────────────────────────────────
 class MockSensorRepository implements SensorRepository {
   final _random = Random();
   final _clock  = _MockClock();
   final _historyMap = <String, List<SensorDataPoint>>{};
 
-  // Current simulated values
   double _temp     = 27.5;
   double _humidity = 72.0;
   double _light    = 11500.0;
@@ -61,7 +49,6 @@ class MockSensorRepository implements SensorRepository {
   double _ec       = 1.8;
 
   late final Stream<List<SensorReading>> _stream;
-  StreamSubscription<DateTime>? _sub;
 
   MockSensorRepository() {
     _clock.addSubscriber();
@@ -75,12 +62,17 @@ class MockSensorRepository implements SensorRepository {
   Stream<List<SensorReading>> get sensorStream => _stream;
 
   @override
-  Future<SensorHistory> getHistory(String sensorId) async {
+  SensorHistory historyFor(String sensorId) {
     final hist = _historyMap[sensorId];
     if (hist != null && hist.isNotEmpty) {
       return SensorHistory(sensorId: sensorId, points: List.unmodifiable(hist));
     }
     return _syntheticHistory(sensorId, 48);
+  }
+
+  @override
+  Future<SensorHistory> fetchHistory(String sensorId, {Duration duration = const Duration(hours: 6)}) async {
+    return historyFor(sensorId);
   }
 
   void _tick() {
@@ -149,14 +141,11 @@ class MockSensorRepository implements SensorRepository {
 
   @override
   void dispose() {
-    _sub?.cancel();
     _clock.removeSubscriber();
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// MOCK DEVICE REPOSITORY
-// ─────────────────────────────────────────────────────────────
+// ── MOCK DEVICE REPOSITORY ─────────────────────────────────────
 class MockDeviceRepository implements DeviceRepository {
   final _deviceController = StreamController<List<DeviceState>>.broadcast();
 
@@ -172,77 +161,72 @@ class MockDeviceRepository implements DeviceRepository {
   Stream<List<DeviceState>> get deviceStream => _deviceController.stream;
 
   @override
-  Stream<DeviceCommand> sendCommand({
-    required String deviceId,
-    required DeviceStatus mode,
-    required bool targetState,
-    required String issuedBy,
-  }) async* {
-    final cmd = DeviceCommand(
-      deviceId:     deviceId,
-      mode:         mode,
-      targetState:  targetState,
-      issuedBy:     issuedBy,
-      issuedAt:     DateTime.now(),
-      commandStatus: CommandStatus.pending,
-    );
+  List<DeviceState> get currentDevices => List.unmodifiable(_devices);
 
-    // 1. Emit pending immediately
-    yield cmd;
-
-    // 2. Simulate ESP32 processing delay (1.5s)
-    await Future.delayed(const Duration(milliseconds: 1500));
-
-    // 3. Apply change to in-memory device list
+  @override
+  void setDeviceStatus(String deviceId, DeviceStatus status, bool isOn) {
     _devices = _devices.map((d) {
       if (d.id != deviceId) return d;
       return d.copyWith(
-        isOn:          targetState,
-        status:        mode,
+        isOn:          isOn,
+        status:        status,
         lastTriggered: DateTime.now(),
-        triggerReason: mode == DeviceStatus.auto
+        triggerReason: status == DeviceStatus.auto
             ? 'Auto: threshold'
-            : 'Manual override by $issuedBy',
-        updatedBy: issuedBy,
+            : 'Manual override',
       );
     }).toList();
-
-    // 4. Push updated device list to stream
     _deviceController.add(List.unmodifiable(_devices));
-
-    // 5. Emit acknowledged
-    yield cmd.copyWith(
-      commandStatus:  CommandStatus.acknowledged,
-      acknowledgedAt: DateTime.now(),
-    );
   }
 
   @override
-  Future<List<AutomationRule>> getAutomationRules() async => const [
-    AutomationRule(sensorId: 'temperature', deviceId: 'exhaust_fan',       triggerLow: 0,     triggerHigh: 28.0,  actionDescription: 'Turn ON exhaust fan when temp > 28°C, OFF when ≤ 26°C'),
-    AutomationRule(sensorId: 'humidity',    deviceId: 'circulation_fan_1', triggerLow: 0,     triggerHigh: 75.0,  actionDescription: 'Turn ON circulation fans when RH > 75%, OFF when ≤ 70%'),
-    AutomationRule(sensorId: 'moisture',    deviceId: 'pump',              triggerLow: 60.0,  triggerHigh: 100,   actionDescription: 'Run pump for 2 min when moisture < 60%'),
-    AutomationRule(sensorId: 'light',       deviceId: 'grow_light',        triggerLow: 10000, triggerHigh: 99999, actionDescription: 'Turn ON grow light when lux < 10,000 (6AM–6PM)'),
+  List<AutomationRule> get automationRules => const [
+    AutomationRule(
+      id: 'rule_1',
+      sensorId: 'temperature',
+      deviceId: 'exhaust_fan',
+      triggerLow: 0,
+      triggerHigh: 28.0,
+      actionDescription: 'Turn ON exhaust fan when temp > 28°C, OFF when ≤ 26°C',
+    ),
+    AutomationRule(
+      id: 'rule_2',
+      sensorId: 'humidity',
+      deviceId: 'circulation_fan_1',
+      triggerLow: 0,
+      triggerHigh: 75.0,
+      actionDescription: 'Turn ON circulation fans when RH > 75%, OFF when ≤ 70%',
+    ),
+    AutomationRule(
+      id: 'rule_3',
+      sensorId: 'moisture',
+      deviceId: 'pump',
+      triggerLow: 60.0,
+      triggerHigh: 100,
+      actionDescription: 'Run pump for 2 min when moisture < 60%',
+    ),
+    AutomationRule(
+      id: 'rule_4',
+      sensorId: 'light',
+      deviceId: 'grow_light',
+      triggerLow: 10000,
+      triggerHigh: 99999,
+      actionDescription: 'Turn ON grow light when lux < 10,000 (6AM–6PM)',
+    ),
   ];
 
   @override
   void dispose() => _deviceController.close();
 }
 
-// ─────────────────────────────────────────────────────────────
-// MOCK ALERT REPOSITORY
-// ─────────────────────────────────────────────────────────────
+// ── MOCK ALERT REPOSITORY ──────────────────────────────────────
 class MockAlertRepository implements AlertRepository {
   final _controller    = StreamController<List<AlertRecord>>.broadcast();
-  final _clock         = _MockClock();
   final List<AlertRecord> _alerts = [];
   int _idCounter = 0;
   Set<String> _activeAlertSensorIds = {};
 
-  late final StreamSubscription<DateTime> _clockSub;
-
   MockAlertRepository(Stream<List<SensorReading>> sensorStream) {
-    // Listen to sensor stream to auto-generate and resolve alerts
     sensorStream.listen((readings) {
       bool changed = false;
       final now = DateTime.now();
@@ -265,7 +249,6 @@ class MockAlertRepository implements AlertRepository {
         } else {
           if (_activeAlertSensorIds.contains(r.id)) {
             _activeAlertSensorIds.remove(r.id);
-            // Resolve open alerts for this sensor
             for (int i = 0; i < _alerts.length; i++) {
               if (_alerts[i].sensorId == r.id && !_alerts[i].isResolved) {
                 _alerts[i] = _alerts[i].copyWith(
@@ -300,9 +283,7 @@ class MockAlertRepository implements AlertRepository {
   void dispose() => _controller.close();
 }
 
-// ─────────────────────────────────────────────────────────────
-// MOCK SYSTEM REPOSITORY
-// ─────────────────────────────────────────────────────────────
+// ── MOCK SYSTEM REPOSITORY ─────────────────────────────────────
 class MockSystemRepository implements SystemRepository {
   final _controller = StreamController<SystemStatus>.broadcast();
   final _clock      = _MockClock();
@@ -312,9 +293,7 @@ class MockSystemRepository implements SystemRepository {
 
   MockSystemRepository() {
     _clock.addSubscriber();
-    // Immediately emit connected
     _controller.add(_connected());
-    // Re-emit every tick
     _sub = _clock.ticks.listen((_) => _controller.add(_connected()));
   }
 
@@ -326,7 +305,7 @@ class MockSystemRepository implements SystemRepository {
   );
 
   @override
-  Stream<SystemStatus> get systemStream => _controller.stream;
+  Stream<SystemStatus> get statusStream => _controller.stream;
 
   @override
   Future<BackupRecord> createBackup() async {
@@ -353,4 +332,163 @@ class MockSystemRepository implements SystemRepository {
     _clock.removeSubscriber();
     _controller.close();
   }
+}
+
+// ── MOCK CAMERA REPOSITORY ─────────────────────────────────────
+class MockCameraRepository implements CameraRepository {
+  final _todayController = StreamController<DailyImageSet>.broadcast();
+  final List<PlantSnapshot> _manualSnapshots = [];
+  int _snapshotIdCounter = 0;
+
+  late final List<DailyImageSet> _growthTimeline;
+
+  MockCameraRepository() {
+    _growthTimeline = _initGrowthTimeline();
+  }
+
+  List<DailyImageSet> _initGrowthTimeline() {
+    final timeline = <DailyImageSet>[];
+    final now = DateTime.now();
+    final scores = [62, 67, 71, 74, 78, 82, 85];
+    final statuses = [
+      HealthStatus.fair, HealthStatus.fair, HealthStatus.healthy,
+      HealthStatus.healthy, HealthStatus.healthy, HealthStatus.healthy, HealthStatus.healthy
+    ];
+
+    for (int day = 7; day >= 1; day--) {
+      final date = now.subtract(Duration(days: day));
+      final dayNum = 8 - day;
+      final score = scores[dayNum - 1];
+      final prevScore = dayNum > 1 ? scores[dayNum - 2] : null;
+      final trend = prevScore == null ? '→'
+          : score > prevScore ? '↑'
+          : score < prevScore ? '↓' : '→';
+
+      // Only create snapshots for SCHEDULED slots (not manual)
+      final snaps = <CaptureSlot, PlantSnapshot>{};
+      for (final slot in [CaptureSlot.morning, CaptureSlot.afternoon, CaptureSlot.evening]) {
+        snaps[slot] = PlantSnapshot(
+          id: 'SNAP${++_snapshotIdCounter}',
+          slot: slot,
+          capturedAt: _slotTime(date, slot),
+          isManual: false,
+          dayNumber: dayNum,
+        );
+      }
+
+      final report = AIGrowthReport(
+        id: 'RPT$dayNum',
+        date: date,
+        dayNumber: dayNum,
+        growthScore: score,
+        healthStatus: statuses[dayNum - 1],
+        summary: _summaryFor(dayNum, score),
+        recommendations: _recFor(dayNum),
+        leafAssessment: 'Leaves appear ${score > 75 ? "vibrant and well-expanded" : "moderate in size with visible growth"}.',
+        colorAssessment: 'Color is ${score > 75 ? "deep green indicating healthy chlorophyll" : "light green, acceptable for this stage"}.',
+        stemAssessment: 'Stem is ${score > 75 ? "upright and sturdy" : "developing normally"}.',
+        scoreTrend: trend,
+        previousDayScore: prevScore,
+        generatedAt: _slotTime(date, CaptureSlot.evening).add(const Duration(minutes: 5)),
+      );
+
+      timeline.add(DailyImageSet(
+        date: date, dayNumber: dayNum,
+        snapshots: snaps, aiReport: report,
+      ));
+    }
+
+    // Today: only morning captured so far
+    final todaySnaps = <CaptureSlot, PlantSnapshot>{
+      CaptureSlot.morning: PlantSnapshot(
+        id: 'SNAP${++_snapshotIdCounter}',
+        slot: CaptureSlot.morning,
+        capturedAt: _slotTime(now, CaptureSlot.morning),
+        isManual: false,
+        dayNumber: 8,
+      ),
+    };
+    timeline.add(DailyImageSet(
+      date: now, dayNumber: 8,
+      snapshots: todaySnaps, aiReport: null,
+    ));
+
+    return timeline;
+  }
+
+  DateTime _slotTime(DateTime date, CaptureSlot slot) {
+    switch (slot) {
+      case CaptureSlot.morning:   return DateTime(date.year, date.month, date.day, 6, 0);
+      case CaptureSlot.afternoon: return DateTime(date.year, date.month, date.day, 14, 0);
+      case CaptureSlot.evening:   return DateTime(date.year, date.month, date.day, 22, 0);
+      case CaptureSlot.manual:    return DateTime.now(); // Manual captures use current time
+    }
+  }
+
+  String _summaryFor(int day, int score) {
+    if (score >= 80) return 'Plant is thriving. Canopy coverage has increased significantly and leaf coloration is optimal. The greenhouse environment is maintaining excellent conditions for continued growth.';
+    if (score >= 70) return 'Plant is showing healthy growth patterns. Minor variations in light distribution observed but within acceptable range. Overall development is on track.';
+    return 'Early-stage growth detected. Leaves are forming and root system appears to be establishing. Conditions are suitable for continued development.';
+  }
+
+  String _recFor(int day) {
+    if (day <= 2) return 'Ensure consistent watering schedule. Monitor pH closely during root establishment phase.';
+    if (day <= 5) return 'Maintain current nutrient levels. Consider adjusting grow light duration by 30 minutes to optimize photosynthesis.';
+    return 'Growth is progressing well. Continue current automation rules. Check EC levels weekly.';
+  }
+
+  @override
+  Stream<DailyImageSet> get todayStream => _todayController.stream;
+
+  @override
+  DailyImageSet get todayImageSet => _growthTimeline.last;
+
+  @override
+  List<DailyImageSet> get growthTimeline => List.unmodifiable(_growthTimeline.reversed.toList());
+
+  @override
+  List<PlantSnapshot> get manualSnapshots => List.unmodifiable(_manualSnapshots);
+
+  @override
+  String nextCaptureLabel() {
+    final hour = DateTime.now().hour;
+    if (hour < 6)  return 'Morning capture at 6:00 AM';
+    if (hour < 14) return 'Afternoon capture at 2:00 PM';
+    if (hour < 22) return 'Evening capture at 10:00 PM';
+    return 'Morning capture at 6:00 AM tomorrow';
+  }
+
+  @override
+  PlantSnapshot triggerManualCapture() {
+    final snap = PlantSnapshot(
+      id: 'SNAP${++_snapshotIdCounter}',
+      slot: CaptureSlot.manual,  // ← FIXED: was CaptureSlot.morning
+      capturedAt: DateTime.now(),
+      isManual: true,
+      dayNumber: todayImageSet.dayNumber,
+    );
+    _manualSnapshots.add(snap);
+    return snap;
+  }
+
+  @override
+  void dispose() => _todayController.close();
+}
+
+// ── MOCK AUTH REPOSITORY ───────────────────────────────────────
+class MockAuthRepository implements AuthRepository {
+  final _mockEmail = 'admin@autm.ph';
+  final _mockPass  = 'tomato123';
+
+  @override
+  Future<bool> signIn(String email, String password) async {
+    await Future.delayed(const Duration(milliseconds: 1400));
+    if (email.trim() == _mockEmail && password == _mockPass) {
+      return true;
+    }
+    throw Exception('Incorrect email or password. Please try again.');
+  }
+
+  @override
+  void dispose() {}
 }

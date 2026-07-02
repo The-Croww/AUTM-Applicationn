@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "262671604101",
+    "firebase_url": "https://automato-7ed8e-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "automato-7ed8e",
+    "storage_bucket": "automato-7ed8e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:262671604101:android:b08624860587e3b9ab4cec",
+        "android_client_info": {
+          "package_name": "com.example.autm_application02"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "262671604101-ae31mj436lakofj8m69e8bbvgvpsj6pa.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.autm_application02",
+            "certificate_hash": "e4255cb4f4055d24cc5926b6b58919f20ea0bf06"
+          }
+        },
+        {
+          "client_id": "262671604101-u47jh2m5rs7of3doseoalq6gro3lvpvk.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBKnuSxo65H7nbaskmWAb7IqWmp_TXsMdg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "262671604101-u47jh2m5rs7of3doseoalq6gro3lvpvk.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
