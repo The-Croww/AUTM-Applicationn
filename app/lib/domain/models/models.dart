@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// DOMAIN MODELS — Firebase-serializable
+// DOMAIN MODELS
 // ═══════════════════════════════════════════════════════════════
 
 // ── Enums ──────────────────────────────────────────────────────
@@ -506,7 +506,7 @@ class DailyImageSet {
 }
 
 // ─────────────────────────────────────────────────────────────
-// ML FEATURES — Cloud Vision output container
+// ML FEATURES — Inference feature vector
 // ─────────────────────────────────────────────────────────────
 class MLPlantFeatures {
   final double leafHealthScore;   // 0-100
@@ -515,7 +515,7 @@ class MLPlantFeatures {
   final double pestSeverity;        // 0-100
   final double brownScore;          // 0-100 (necrosis/browning)
   final List<String> detectedPests;
-  final List<String> labels;        // Raw Cloud Vision labels
+  final List<String> labels;        // Raw inference labels
   final String growthStage;           // seedling | vegetative | flowering | fruiting
 
   const MLPlantFeatures({

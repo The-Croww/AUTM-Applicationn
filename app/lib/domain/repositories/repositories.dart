@@ -1,7 +1,7 @@
 // lib/domain/repositories/repositories.dart
 //
-// Pure abstract interfaces — no Flutter or Firebase imports.
-// Mock and Firebase implementations live in data/ and swap
+// Pure abstract interfaces — no Flutter or platform imports.
+// Mock and local implementations live in data/ and swap
 // in main.dart without touching any other file.
 
 import 'dart:async';
@@ -15,7 +15,7 @@ abstract class SensorRepository {
   /// Snapshot of the most recent history window for [sensorId].
   SensorHistory historyFor(String sensorId);
 
-  /// Fetch history data from Firebase for [sensorId].
+  /// Fetch history data for [sensorId].
   Future<SensorHistory> fetchHistory(String sensorId, {Duration duration});
 
   void dispose();
@@ -91,6 +91,8 @@ abstract class AuthRepository {
   /// Attempt sign-in with [email] and [password].
   /// Returns `true` on success, throws on failure.
   Future<bool> signIn(String email, String password);
+
+  Future<bool> signInWithGoogle();
 
   void dispose();
 }

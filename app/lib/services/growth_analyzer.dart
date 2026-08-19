@@ -1,17 +1,12 @@
-//aigrowth_analyzer.dart
-
 import '../../domain/models/models.dart';
 
-class AIGrowthAnalyzer {
-  /// Main entry point called by AppState._runAIAnalysis()
-  /// Takes vision result + sensor readings and returns a structured analysis result
+class GrowthAnalyzer {
   AIGrowthReport analyzeGrowth({
-    required dynamic visionResult,  // VisionResult from vision_service.dart
+    required MLPlantFeatures mlFeatures,
     required Map<String, double> sensorReadings,
     required int dayNumber,
     int? previousDayScore,
   }) {
-    // Convert sensor readings to SensorReading objects for the report
     final sensorList = <SensorReading>[];
     for (final entry in sensorReadings.entries) {
       sensorList.add(SensorReading(
@@ -28,10 +23,6 @@ class AIGrowthAnalyzer {
       ));
     }
 
-    // Build ML features from vision labels
-    final mlFeatures = _buildMLFeatures(visionResult);
-
-    // Calculate scores
     final sensorScore = _calculateSensorHealth(sensorList);
     final mlScore = (mlFeatures.leafHealthScore * 0.4 +
                     mlFeatures.colorIndex * 0.3 +
@@ -72,89 +63,6 @@ class AIGrowthAnalyzer {
     );
   }
 
-  // ── Helper: Build MLPlantFeatures from Cloud Vision labels ──
-  // Accepts VisionResult from vision_service.dart (dynamic for loose coupling)
-  MLPlantFeatures _buildMLFeatures(dynamic vision) {
-    final labels = (vision.labels as List<dynamic>?)?.map((l) => l.toString().toLowerCase()).toList() ?? [];
-
-    // Try to use VisionResult's built-in toMLFeatures if available
-    try {
-      final ml = vision.toMLFeatures();
-      if (ml != null) {
-        return MLPlantFeatures(
-          leafHealthScore: (ml.leafHealthScore as num?)?.toDouble() ?? 70,
-          colorIndex: (ml.colorIndex as num?)?.toDouble() ?? 70,
-          stemVigor: (ml.stemVigor as num?)?.toDouble() ?? 70,
-          pestSeverity: (ml.pestSeverity as num?)?.toDouble() ?? 0,
-          brownScore: (ml.brownScore as num?)?.toDouble() ?? 0,
-          detectedPests: (ml.detectedPests as List<dynamic>?)?.cast<String>() ?? [],
-          labels: vision.labels?.cast<String>() ?? [],
-        );
-      }
-    } catch (_) {
-      // Fallback to heuristic
-    }
-
-    // Heuristic scoring based on label presence
-    double leafHealth = 70;
-    double colorIdx = 70;
-    double stemVig = 70;
-    double pestSev = 0;
-    double brown = 0;
-    final pests = <String>[];
-
-    // Color analysis
-    if (labels.any((l) => l.contains('green') || l.contains('leaf'))) {
-      colorIdx = 85;
-    }
-    if (labels.any((l) => l.contains('yellow') || l.contains('chlorosis'))) {
-      colorIdx = 45;
-    }
-    if (labels.any((l) => l.contains('brown') || l.contains('wilted'))) {
-      brown = 60;
-      colorIdx = 35;
-    }
-
-    // Leaf health
-    if (labels.any((l) => l.contains('healthy') || l.contains('vibrant'))) {
-      leafHealth = 90;
-    }
-    if (labels.any((l) => l.contains('spot') || l.contains('damage'))) {
-      leafHealth = 50;
-    }
-    if (labels.any((l) => l.contains('disease') || l.contains('fungal'))) {
-      leafHealth = 30;
-    }
-
-    // Stem vigor
-    if (labels.any((l) => l.contains('erect') || l.contains('sturdy'))) {
-      stemVig = 85;
-    }
-    if (labels.any((l) => l.contains('thin') || l.contains('spindly'))) {
-      stemVig = 45;
-    }
-
-    // Pest detection
-    final pestKeywords = ['aphid', 'mite', 'whitefly', 'caterpillar', 'thrip', 'snail', 'slug'];
-    for (final pest in pestKeywords) {
-      if (labels.any((l) => l.contains(pest))) {
-        pestSev = 50;
-        pests.add(pest);
-      }
-    }
-
-    return MLPlantFeatures(
-      leafHealthScore: leafHealth,
-      colorIndex: colorIdx,
-      stemVigor: stemVig,
-      pestSeverity: pestSev,
-      brownScore: brown,
-      detectedPests: pests,
-      labels: vision.labels,
-    );
-  }
-
-  // ── Sensor helpers ──
   String _unitForSensor(String id) {
     switch (id) {
       case 'temperature': return '°C';
@@ -424,10 +332,10 @@ class AIGrowthAnalyzer {
   }
 
   String _calculateTrend(int current, int? previous) {
-    if (previous == null) return '→';
+    if (previous == null) return '➡️';
     final diff = current - previous;
     if (diff > 5) return '📈';
     if (diff < -5) return '📉';
-    return '→';
+    return '➡️';
   }
 }

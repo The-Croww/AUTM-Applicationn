@@ -1,17 +1,19 @@
-//main.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:firebase_core/firebase_core.dart';
 
 import 'data/mock/mock_repositories.dart';
-import 'data/firebase/firebase_repositories.dart';
 import 'presentation/theme/app_theme.dart';
-import 'presentation/providers/app_state.dart';
+import 'presentation/providers/sensor_provider.dart';
+import 'presentation/providers/device_provider.dart';
+import 'presentation/providers/alert_provider.dart';
+import 'presentation/providers/system_provider.dart';
+import 'presentation/providers/capture_provider.dart';
+import 'presentation/providers/growth_provider.dart';
 import 'services/notification_service.dart';
-import 'domain/models/sensor_data.dart';
+import 'services/placeholder_ml_inference_service.dart';
+import 'services/growth_analyzer.dart';
 
 import 'presentation/screens/splash/splash_screen.dart' as splash;
 import 'presentation/screens/login/login_screen.dart' as login;
@@ -25,17 +27,17 @@ import 'presentation/screens/alerts/alerts_screen.dart';
 final _navigatorKey = GlobalKey<NavigatorState>();
 
 // Shared auth repo instance
-final _authRepo = FirebaseAuthRepository();
+final _authRepo = MockAuthRepository();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
 
-  final sensorRepo = FirebaseSensorRepository();
-  final deviceRepo = FirebaseDeviceRepository();
-  final alertRepo = FirebaseAlertRepository();
-  final systemRepo = FirebaseSystemRepository();
+  final sensorRepo = MockSensorRepository();
+  final deviceRepo = MockDeviceRepository();
+  final alertRepo = MockAlertRepository(sensorRepo.sensorStream);
+  final systemRepo = MockSystemRepository();
   final cameraRepo = MockCameraRepository();
+  
 
   await NotificationService.init();
 
@@ -46,15 +48,33 @@ void main() async {
     systemNavigationBarIconBrightness: Brightness.dark,
   ));
 
+  final sensorProvider = SensorProvider(sensorRepo: sensorRepo);
+  final deviceProvider = DeviceProvider(deviceRepo: deviceRepo);
+  final alertProvider = AlertProvider(alertRepo: alertRepo);
+  final systemProvider = SystemProvider(systemRepo: systemRepo);
+  final growthProvider = GrowthProvider(
+    mlInferenceService: PlaceholderMLInferenceService(),
+    growthAnalyzer: GrowthAnalyzer(),
+    cameraRepo: cameraRepo,
+  );
+  final captureProvider = CaptureProvider(
+    cameraRepo: cameraRepo,
+    growthProvider: growthProvider,
+    sensorProvider: sensorProvider,
+  );
+  captureProvider.growthProvider = growthProvider;
+  captureProvider.sensorProvider = sensorProvider;
+
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => AppState(
-        sensorRepository: sensorRepo,
-        deviceRepository: deviceRepo,
-        alertRepository: alertRepo,
-        systemRepository: systemRepo,
-        cameraRepository: cameraRepo,
-      ),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: sensorProvider),
+        ChangeNotifierProvider.value(value: deviceProvider),
+        ChangeNotifierProvider.value(value: alertProvider),
+        ChangeNotifierProvider.value(value: systemProvider),
+        ChangeNotifierProvider.value(value: growthProvider),
+        ChangeNotifierProvider.value(value: captureProvider),
+      ],
       child: const AuTOMATOApp(),
     ),
   );
@@ -149,8 +169,7 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
-    final state = context.watch<AppState>();
-    final alertCount = state.alertCount;
+    final alertCount = context.watch<AlertProvider>().alertCount;
 
     return Scaffold(
       backgroundColor: AppTheme.bg0,

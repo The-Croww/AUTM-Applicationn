@@ -475,18 +475,46 @@ class MockCameraRepository implements CameraRepository {
   void dispose() => _todayController.close();
 }
 
-// ── MOCK AUTH REPOSITORY ───────────────────────────────────────
 class MockAuthRepository implements AuthRepository {
   final _mockEmail = 'admin@autm.ph';
-  final _mockPass  = 'tomato123';
+  final _mockPass = 'tomato123';
+
+  bool _signedIn = false;
 
   @override
   Future<bool> signIn(String email, String password) async {
-    await Future.delayed(const Duration(milliseconds: 1400));
+    await Future.delayed(
+      const Duration(milliseconds: 1400),
+    );
+
     if (email.trim() == _mockEmail && password == _mockPass) {
+      _signedIn = true;
       return true;
     }
-    throw Exception('Incorrect email or password. Please try again.');
+
+    throw Exception(
+      'Incorrect email or password. Please try again.',
+    );
+  }
+
+  @override
+  Future<bool> signInWithGoogle() async {
+    await Future.delayed(
+      const Duration(milliseconds: 800),
+    );
+
+    // Mock Google login
+    _signedIn = true;
+
+    return true;
+  }
+
+  @override
+  String? get currentUser => _signedIn ? 'mock@user' : null;
+
+  @override
+  Future<void> signOut() async {
+    _signedIn = false;
   }
 
   @override

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../domain/models/sensor_data.dart';
-import '../../providers/app_state.dart';
+import 'package:automato/presentation/providers/sensor_provider.dart';
 import '../../theme/app_theme.dart';
 
 class SensorDetailScreen extends StatefulWidget {
@@ -30,8 +30,8 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
       _error = null;
     });
     try {
-      final state = context.read<AppState>();
-      final history = await state.fetchHistory(widget.sensorId);
+      final sensorProvider = context.read<SensorProvider>();
+      final history = await sensorProvider.fetchHistory(widget.sensorId);
       setState(() {
         _history = history;
         _loading = false;
@@ -46,11 +46,11 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<AppState>(
-      builder: (context, state, _) {
-        final reading = state.readings.firstWhere((r) => r.id == widget.sensorId);
+    return Consumer<SensorProvider>(
+      builder: (context, sensorProvider, _) {
+        final reading = sensorProvider.readings.firstWhere((r) => r.id == widget.sensorId);
         final color = statusColor(reading.status);
-        final history = _history ?? state.historyFor(widget.sensorId);
+        final history = _history ?? sensorProvider.historyFor(widget.sensorId);
 
         return Scaffold(
           backgroundColor: AppTheme.bg0,
@@ -202,7 +202,7 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 12, vertical: 8),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.bg0.withOpacity(0.95),
+                                    color: AppTheme.bg0.withValues(alpha:0.95),
                                     borderRadius: BorderRadius.circular(8),
                                     border: Border.all(color: AppTheme.divider),
                                   ),
@@ -402,7 +402,7 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppTheme.statusAlert.withOpacity(0.1),
+                  color: AppTheme.statusAlert.withValues(alpha:0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text('${breaches.length} total',
@@ -453,7 +453,7 @@ class _BigValueCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.bg1,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha:0.2)),
       ),
       child: Row(
         children: [
@@ -500,7 +500,7 @@ class _BigValueCard extends StatelessWidget {
             width: 64,
             height: 64,
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha:0.1),
               borderRadius: BorderRadius.circular(18),
             ),
             child: Icon(_iconData(reading.icon), color: color, size: 30),
@@ -655,7 +655,7 @@ class _BreachEventRow extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha:0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, color: color, size: 16),
@@ -729,13 +729,13 @@ class _DetailChartPainter extends CustomPainter {
         ny(warningLow.clamp(minV - pad, maxV + pad)),
       ),
       Paint()
-        ..color = AppTheme.statusNormal.withOpacity(0.06)
+        ..color = AppTheme.statusNormal.withValues(alpha:0.06)
         ..style = PaintingStyle.fill,
     );
 
     // Threshold lines
     final thresholdPaint = Paint()
-      ..color = AppTheme.statusWarning.withOpacity(0.3)
+      ..color = AppTheme.statusWarning.withValues(alpha:0.3)
       ..strokeWidth = 1;
     if (warningLow >= minV - pad && warningLow <= maxV + pad) {
       canvas.drawLine(Offset(0, ny(warningLow)), Offset(size.width, ny(warningLow)), thresholdPaint);
@@ -758,7 +758,7 @@ class _DetailChartPainter extends CustomPainter {
         ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [color.withOpacity(0.2), color.withOpacity(0.0)],
+          colors: [color.withValues(alpha:0.2), color.withValues(alpha:0.0)],
         ).createShader(Rect.fromLTWH(0, 0, size.width, size.height)),
     );
 
@@ -794,13 +794,13 @@ class _DetailChartPainter extends CustomPainter {
         Offset(x, 0),
         Offset(x, size.height),
         Paint()
-          ..color = color.withOpacity(0.3)
+          ..color = color.withValues(alpha:0.3)
           ..strokeWidth = 1,
       );
 
       canvas.drawCircle(Offset(x, y), 6, Paint()..color = color);
       canvas.drawCircle(Offset(x, y), 10, Paint()
-        ..color = color.withOpacity(0.2)
+        ..color = color.withValues(alpha:0.2)
         ..style = PaintingStyle.fill);
     }
   }

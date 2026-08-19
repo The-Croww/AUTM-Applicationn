@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../domain/models/sensor_data.dart';
-import '../../providers/app_state.dart';
+import 'package:automato/presentation/providers/sensor_provider.dart';
 import '../../theme/app_theme.dart';
 
 class AnalyticsScreen extends StatefulWidget {
@@ -57,8 +57,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       _tooltipIndex = null;
     });
     try {
-      final state = context.read<AppState>();
-      final history = await state.fetchHistory(
+      final sensorProvider = context.read<SensorProvider>();
+      final history = await sensorProvider.fetchHistory(
         _selectedSensor,
         duration: _fetchDuration,
       );
@@ -203,11 +203,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           child: Container(height: 1, color: AppTheme.divider),
         ),
       ),
-      body: Consumer<AppState>(
-        builder: (context, state, _) {
-          final reading = state.readings
+      body: Consumer<SensorProvider>(
+        builder: (context, sensorProvider, _) {
+          final reading = sensorProvider.readings
               .firstWhere((r) => r.id == _selectedSensor);
-          final history = _history ?? state.historyFor(_selectedSensor);
+          final history = _history ?? sensorProvider.historyFor(_selectedSensor);
           final filtered = _filterPoints(history.points);
           final color = statusColor(reading.status);
           final isOffline = _isOffline(reading);
@@ -273,7 +273,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                             _buildBreachEventsCard(reading, filtered),
                           ],
                           const SizedBox(height: 16),
-                          _buildAllSensorsTable(state),
+                           _buildAllSensorsTable(sensorProvider),
                           const SizedBox(height: 16),
                           _buildActionButtons(),
                           const SizedBox(height: 20),
@@ -295,9 +295,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: AppTheme.inkFaint.withOpacity(0.1),
+        color: AppTheme.inkFaint.withValues(alpha:0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.inkFaint.withOpacity(0.2)),
+        border: Border.all(color: AppTheme.inkFaint.withValues(alpha:0.2)),
       ),
       child: Row(
         children: [
@@ -328,16 +328,16 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: alertColor.withOpacity(0.08),
+        color: alertColor.withValues(alpha:0.08),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: alertColor.withOpacity(0.25)),
+        border: Border.all(color: alertColor.withValues(alpha:0.25)),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: alertColor.withOpacity(0.15),
+              color: alertColor.withValues(alpha:0.15),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
@@ -418,7 +418,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             label: const Text('Refresh'),
             style: OutlinedButton.styleFrom(
               foregroundColor: AppTheme.olive,
-              side: BorderSide(color: AppTheme.olive.withOpacity(0.5)),
+              side: BorderSide(color: AppTheme.olive.withValues(alpha:0.5)),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
@@ -469,7 +469,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       decoration: BoxDecoration(
         color: AppTheme.alertSurface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.statusAlert.withOpacity(0.3)),
+        border: Border.all(color: AppTheme.statusAlert.withValues(alpha:0.3)),
       ),
       child: Row(
         children: [
@@ -573,7 +573,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
                   color: selected
-                      ? AppTheme.textSecondary.withOpacity(0.4)
+                      ? AppTheme.textSecondary.withValues(alpha:0.4)
                       : AppTheme.divider,
                 ),
               ),
@@ -759,12 +759,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 12, vertical: 8),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.bg0.withOpacity(0.95),
+                                    color: AppTheme.bg0.withValues(alpha:0.95),
                                     borderRadius: BorderRadius.circular(8),
                                     border: Border.all(color: AppTheme.divider),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withOpacity(0.1),
+                                        color: Colors.black.withValues(alpha:0.1),
                                         blurRadius: 8,
                                         offset: const Offset(0, 2),
                                       ),
@@ -1045,7 +1045,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppTheme.statusAlert.withOpacity(0.1),
+                  color: AppTheme.statusAlert.withValues(alpha:0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -1069,7 +1069,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     );
   }
 
-  Widget _buildAllSensorsTable(AppState state) {
+  Widget _buildAllSensorsTable(SensorProvider sensorProvider) {
     return Container(
       decoration: BoxDecoration(
         color: AppTheme.bg1,
@@ -1088,7 +1088,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     fontWeight: FontWeight.w600)),
           ),
           const Divider(height: 1),
-          ...state.readings.map((r) => _SensorTableRow(
+          ...sensorProvider.readings.map((r) => _SensorTableRow(
             reading: r,
             isOffline: _isOffline(r),
           )),
@@ -1188,10 +1188,10 @@ class _StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
       decoration: BoxDecoration(
-        color: highlight ? AppTheme.olive.withOpacity(0.1) : AppTheme.bg2,
+        color: highlight ? AppTheme.olive.withValues(alpha:0.1) : AppTheme.bg2,
         borderRadius: BorderRadius.circular(12),
         border: highlight
-            ? Border.all(color: AppTheme.olive.withOpacity(0.3))
+            ? Border.all(color: AppTheme.olive.withValues(alpha:0.3))
             : null,
       ),
       child: Column(
@@ -1318,7 +1318,7 @@ class _BreachEventRow extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha:0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, color: color, size: 16),
@@ -1447,7 +1447,7 @@ class _SensorTableRow extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: AppTheme.inkFaint.withOpacity(0.1),
+                color: AppTheme.inkFaint.withValues(alpha:0.1),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
@@ -1523,12 +1523,12 @@ class _AnalyticsChartPainter extends CustomPainter {
         ny(warningLow.clamp(minV - pad, maxV + pad)),
       ),
       Paint()
-        ..color = AppTheme.statusNormal.withOpacity(0.05)
+        ..color = AppTheme.statusNormal.withValues(alpha:0.05)
         ..style = PaintingStyle.fill,
     );
 
     final thresholdPaint = Paint()
-      ..color = AppTheme.statusWarning.withOpacity(0.3)
+      ..color = AppTheme.statusWarning.withValues(alpha:0.3)
       ..strokeWidth = 1
       ..style = PaintingStyle.stroke;
 
@@ -1549,7 +1549,7 @@ class _AnalyticsChartPainter extends CustomPainter {
     }
 
     final guidePaint = Paint()
-      ..color = AppTheme.divider.withOpacity(0.5)
+      ..color = AppTheme.divider.withValues(alpha:0.5)
       ..strokeWidth = 1;
     for (int i = 1; i <= 4; i++) {
       final y = size.height * i / 4;
@@ -1570,7 +1570,7 @@ class _AnalyticsChartPainter extends CustomPainter {
         ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [color.withOpacity(0.25), color.withOpacity(0.0)],
+          colors: [color.withValues(alpha:0.25), color.withValues(alpha:0.0)],
         ).createShader(Rect.fromLTWH(0, 0, size.width, size.height)),
     );
 
@@ -1583,7 +1583,7 @@ class _AnalyticsChartPainter extends CustomPainter {
       ..strokeJoin = StrokeJoin.round;
 
     final dashedPaint = Paint()
-      ..color = color.withOpacity(0.3)
+      ..color = color.withValues(alpha:0.3)
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
@@ -1635,7 +1635,7 @@ class _AnalyticsChartPainter extends CustomPainter {
         Offset(x, 0),
         Offset(x, size.height),
         Paint()
-          ..color = color.withOpacity(0.3)
+          ..color = color.withValues(alpha:0.3)
           ..strokeWidth = 1,
       );
 
@@ -1644,7 +1644,7 @@ class _AnalyticsChartPainter extends CustomPainter {
         Offset(x, y),
         10,
         Paint()
-          ..color = color.withOpacity(0.2)
+          ..color = color.withValues(alpha:0.2)
           ..style = PaintingStyle.fill,
       );
     }

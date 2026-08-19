@@ -4,7 +4,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:automato/domain/models/sensor_data.dart';
-import 'package:automato/presentation/providers/app_state.dart';
+import 'package:automato/presentation/providers/alert_provider.dart';
+import 'package:automato/presentation/providers/device_provider.dart';
+import 'package:automato/presentation/providers/sensor_provider.dart';
 import 'package:automato/presentation/theme/app_theme.dart';
 import 'package:automato/presentation/widgets/sensor_card.dart';
 import 'package:automato/presentation/screens/sensor_detail/sensor_detail_screen.dart';
@@ -29,7 +31,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final state = context.watch<AppState>();
+    final deviceProvider = context.watch<DeviceProvider>();
+    final sensorProvider = context.watch<SensorProvider>();
+    final alertProvider = context.watch<AlertProvider>();
     return Scaffold(
       backgroundColor: AppTheme.bg0,
       body: SafeArea(
@@ -40,12 +44,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
-              _buildGreenhouseHealthStatus(state),
-              if (state.alertCount > 0)
-                _buildAlertBanner(context, state),
+              _buildGreenhouseHealthStatus(sensorProvider),
+              if (alertProvider.alertCount > 0)
+                _buildAlertBanner(context, sensorProvider, alertProvider),
               _buildSensorsSectionHeader(),
-              _buildDeviceStatusRow(state),
-              _buildSensorCards(context, state),
+              _buildDeviceStatusRow(deviceProvider),
+              _buildSensorCards(context, sensorProvider),
               const SliverToBoxAdapter(
                 child: SizedBox(height: 80),
               ),
@@ -56,23 +60,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildGreenhouseHealthStatus(AppState state) {
-    final total = state.readings.length;
+  Widget _buildGreenhouseHealthStatus(SensorProvider sensorProvider) {
+    final readings = sensorProvider.readings;
+    final total = readings.length;
     if (total == 0) {
       return const SliverToBoxAdapter(
         child: _HealthGridShimmer(),
       );
     }
 
-    final alertCount = state.readings.where((r) => r.status == SensorStatus.alert).length;
-    final warningCount = state.readings.where((r) => r.status == SensorStatus.warning).length;
-    final normalCount = state.readings.where((r) => r.status == SensorStatus.normal).length;
+    final alertCount = readings.where((r) => r.status == SensorStatus.alert).length;
+    final warningCount = readings.where((r) => r.status == SensorStatus.warning).length;
+    final normalCount = readings.where((r) => r.status == SensorStatus.normal).length;
 
     final score = ((normalCount * 1.0 + warningCount * 0.5) / total).clamp(0.0, 1.0);
     final percent = (score * 100).round();
-    final lastSync = state.readings.isEmpty
+    final lastSync = readings.isEmpty
         ? DateTime.now()
-        : state.readings.map((r) => r.timestamp).reduce((a, b) => a.isAfter(b) ? a : b);
+        : readings.map((r) => r.timestamp).reduce((a, b) => a.isAfter(b) ? a : b);
 
     return SliverToBoxAdapter(
       child: Padding(
@@ -195,8 +200,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildDeviceStatusRow(AppState state) {
-    final devices = state.devices;
+  Widget _buildDeviceStatusRow(DeviceProvider deviceProvider) {
+    final devices = deviceProvider.devices;
     if (devices.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
 
     return SliverToBoxAdapter(
@@ -230,8 +235,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildAlertBanner(BuildContext context, AppState state) {
-    final alertSensors = state.readings
+  Widget _buildAlertBanner(BuildContext context, SensorProvider sensorProvider, AlertProvider alertProvider) {
+    final alertSensors = sensorProvider.readings
         .where((r) => r.status == SensorStatus.alert)
         .toList();
     return SliverToBoxAdapter(
@@ -249,7 +254,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             decoration: BoxDecoration(
               color: AppTheme.alertSurface,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.statusAlert.withOpacity(0.2)),
+              border: Border.all(color: AppTheme.statusAlert.withValues(alpha:0.2)),
             ),
             child: Row(
               children: [
@@ -277,8 +282,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildSensorCards(BuildContext context, AppState state) {
-    final readings = state.readings;
+  Widget _buildSensorCards(BuildContext context, SensorProvider sensorProvider) {
+    final readings = sensorProvider.readings;
     if (readings.isEmpty) {
       return const SliverToBoxAdapter(
         child: Padding(
@@ -486,7 +491,7 @@ class _AlertsSummaryCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppTheme.statusWarning.withOpacity(0.15),
+        color: AppTheme.statusWarning.withValues(alpha:0.15),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -529,8 +534,8 @@ class _AlertsSummaryCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
               color: isAtRisk
-                  ? AppTheme.statusAlert.withOpacity(0.15)
-                  : AppTheme.statusNormal.withOpacity(0.15),
+                  ? AppTheme.statusAlert.withValues(alpha:0.15)
+                  : AppTheme.statusNormal.withValues(alpha:0.15),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
@@ -562,7 +567,7 @@ class _StableSensorsCard extends StatelessWidget {
         height: 196,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppTheme.statusNormal.withOpacity(0.2),
+          color: AppTheme.statusNormal.withValues(alpha:0.2),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Column(
@@ -614,7 +619,7 @@ class _WarningSensorsCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppTheme.statusWarning.withOpacity(0.2),
+        color: AppTheme.statusWarning.withValues(alpha:0.2),
         borderRadius: BorderRadius.circular(18),
       ),
       child: Column(
@@ -675,7 +680,7 @@ class _MonitoredSensorsCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppTheme.olive.withOpacity(0.15),
+        color: AppTheme.olive.withValues(alpha:0.15),
         borderRadius: BorderRadius.circular(18),
       ),
       child: Column(
@@ -706,7 +711,7 @@ class _MonitoredSensorsCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                 decoration: BoxDecoration(
-                  color: AppTheme.statusNormal.withOpacity(0.2),
+                  color: AppTheme.statusNormal.withValues(alpha:0.2),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Text(
@@ -746,7 +751,7 @@ class _OverallSummaryCard extends StatelessWidget {
         border: Border.all(color: AppTheme.divider),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha:0.03),
             blurRadius: 14,
             offset: const Offset(0, 6),
           ),
@@ -808,7 +813,7 @@ class _ViewAnalyticsButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: AppTheme.olive.withOpacity(0.1),
+          color: AppTheme.olive.withValues(alpha:0.1),
           borderRadius: BorderRadius.circular(8),
         ),
         child: const Row(

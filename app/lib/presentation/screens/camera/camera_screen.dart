@@ -7,10 +7,11 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:automato/domain/models/sensor_data.dart';
-import 'package:automato/presentation/providers/app_state.dart';
+import 'package:automato/presentation/providers/capture_provider.dart';
+import 'package:automato/presentation/providers/growth_provider.dart';
 import 'package:automato/presentation/theme/app_theme.dart';
 import 'package:automato/presentation/widgets/sensor_card.dart';
-import '../../../services/google_drive_service.dart';
+
 import 'dart:typed_data';
 import 'dart:io';
 import '../debug_ml/debug_ml_screen.dart';
@@ -67,7 +68,7 @@ class _CameraScreenState extends State<CameraScreen>
                     borderRadius: BorderRadius.circular(10),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.04),
+                        color: Colors.black.withValues(alpha:0.04),
                         blurRadius: 6,
                         offset: const Offset(0, 2),
                       ),
@@ -114,7 +115,7 @@ class _CameraScreenState extends State<CameraScreen>
 class _DayViewTab extends StatelessWidget {
   const _DayViewTab();
 
-  Future<void> _captureSlot(BuildContext context, AppState state, CaptureSlot slot) async {
+  Future<void> _captureSlot(BuildContext context, CaptureProvider captureProvider, CaptureSlot slot) async {
     final picker = ImagePicker();
     final XFile? image = await picker.pickImage(
       source: ImageSource.camera,
@@ -124,44 +125,29 @@ class _DayViewTab extends StatelessWidget {
     if (image == null) return;
 
     String? localPath;
-    String? driveUrl;
 
     try {
       final Uint8List imageBytes = await image.readAsBytes();
       final Directory appDir = await getApplicationDocumentsDirectory();
       final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-      final String fileName = '${slot.name}_${state.todayImageSet.dayNumber}_$timestamp.jpg';
+      final String fileName = '${slot.name}_${captureProvider.todayImageSet.dayNumber}_$timestamp.jpg';
       final String capturesDir = path.join(appDir.path, 'captures');
       localPath = path.join(capturesDir, fileName);
       
       await Directory(capturesDir).create(recursive: true);
       await File(localPath).writeAsBytes(imageBytes);
 
-      try {
-        final driveService = GoogleDriveService();
-        if (!driveService.isSignedIn) await driveService.signIn();
-        driveUrl = await driveService.uploadImageBytes(
-          bytes: imageBytes,
-          fileName: fileName,
-        );
-      } catch (e) {
-        debugPrint('Drive upload failed: $e');
-      }
-
-      await state.saveSlotCapture(
+      await captureProvider.saveSlotCapture(
         slot: slot,
         bytes: imageBytes,
         localPath: localPath,
-        driveUrl: driveUrl,
       );
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(driveUrl != null 
-              ? '${slot.label} saved & uploaded!' 
-              : '${slot.label} saved locally'),
-            backgroundColor: driveUrl != null ? const Color(0xFF0F9F72) : AppTheme.statusWarning,
+            content: Text('${slot.label} saved locally'),
+            backgroundColor: AppTheme.statusWarning,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -182,7 +168,7 @@ class _DayViewTab extends StatelessWidget {
     }
   }
 
-  Future<void> _replaceSlot(BuildContext context, AppState state, CaptureSlot slot, PlantSnapshot oldSnap) async {
+  Future<void> _replaceSlot(BuildContext context, CaptureProvider captureProvider, CaptureSlot slot, PlantSnapshot oldSnap) async {
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
@@ -227,36 +213,23 @@ class _DayViewTab extends StatelessWidget {
     if (image == null) return;
 
     String? localPath;
-    String? driveUrl;
 
     try {
       final Uint8List imageBytes = await image.readAsBytes();
       final Directory appDir = await getApplicationDocumentsDirectory();
       final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-      final String fileName = '${slot.name}_${state.todayImageSet.dayNumber}_${timestamp}_replace.jpg';
+      final String fileName = '${slot.name}_${captureProvider.todayImageSet.dayNumber}_${timestamp}_replace.jpg';
       final String capturesDir = path.join(appDir.path, 'captures');
       localPath = path.join(capturesDir, fileName);
       
       await Directory(capturesDir).create(recursive: true);
       await File(localPath).writeAsBytes(imageBytes);
 
-      try {
-        final driveService = GoogleDriveService();
-        if (!driveService.isSignedIn) await driveService.signIn();
-        driveUrl = await driveService.uploadImageBytes(
-          bytes: imageBytes,
-          fileName: fileName,
-        );
-      } catch (e) {
-        debugPrint('Drive upload failed: $e');
-      }
-
-      await state.replaceSlotCapture(
+      await captureProvider.replaceSlotCapture(
         slot: slot,
         bytes: imageBytes,
         oldSnapshot: oldSnap,
         localPath: localPath,
-        driveUrl: driveUrl,
       );
 
       if (context.mounted) {
@@ -284,7 +257,7 @@ class _DayViewTab extends StatelessWidget {
     }
   }
 
-  void _previewImage(BuildContext context, AppState state, PlantSnapshot snap, CaptureSlot slot) {
+  void _previewImage(BuildContext context, CaptureProvider captureProvider, PlantSnapshot snap, CaptureSlot slot) {
     showDialog(
       context: context,
       builder: (_) => Dialog(
@@ -318,11 +291,11 @@ class _DayViewTab extends StatelessWidget {
                             ),
                           ),
                         ),
-                        if (!snap.isManual && state.isViewingToday)
+                        if (!snap.isManual && captureProvider.isViewingToday)
                           GestureDetector(
                             onTap: () {
                               Navigator.pop(context);
-                              _replaceSlot(context, state, slot, snap);
+                              _replaceSlot(context, captureProvider, slot, snap);
                             },
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -363,43 +336,29 @@ class _DayViewTab extends StatelessWidget {
     if (snap.localPath != null && File(snap.localPath!).existsSync()) {
       return Image.file(File(snap.localPath!), fit: BoxFit.contain);
     }
-    if (snap.imageUrl != null) {
-      return FutureBuilder<List<int>>(
-        future: GoogleDriveService().downloadImage(snap.imageUrl!),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasData && snapshot.data != null) {
-            return Image.memory(Uint8List.fromList(snapshot.data!), fit: BoxFit.contain);
-          }
-          return const Center(child: Icon(Icons.broken_image, color: Colors.white));
-        },
-      );
-    }
     return const Center(child: Icon(Icons.broken_image, color: Colors.white));
   }
 
   @override
   Widget build(BuildContext context) {
-    final state = context.watch<AppState>();
-    final currentDay = state.currentDaySet;
-    final isViewingToday = state.isViewingToday;
+    final captureProvider = context.watch<CaptureProvider>();
+    final currentDay = captureProvider.currentDaySet;
+    final isViewingToday = captureProvider.isViewingToday;
 
     final List<Widget> children = [
-      _buildDayNavigator(context, state),
+      _buildDayNavigator(context, captureProvider),
       const SizedBox(height: 20),
     ];
 
     if (isViewingToday) {
       children.addAll([
-        _buildScheduleHeader(state),
+        _buildScheduleHeader(captureProvider),
         const SizedBox(height: 20),
       ]);
     }
 
     children.addAll([
-      _buildCaptureRow(context, state, currentDay),
+      _buildCaptureRow(context, captureProvider, currentDay),
       const SizedBox(height: 24),
     ]);
 
@@ -411,19 +370,19 @@ class _DayViewTab extends StatelessWidget {
     children.add(const SizedBox(height: 24));
 
     if (isViewingToday) {
-      children.add(_buildManualCapture(context, state));
-      if (state.manualSnapshots.isNotEmpty) {
+      children.add(_buildManualCapture(context, captureProvider));
+      if (captureProvider.manualSnapshots.isNotEmpty) {
         children.addAll([
           const SizedBox(height: 28),
-          _buildManualGallery(state),
+          _buildManualGallery(captureProvider),
         ]);
       }
     }
 
-    if (!isViewingToday && state.manualSnapshots.isNotEmpty) {
+    if (!isViewingToday && captureProvider.manualSnapshots.isNotEmpty) {
       children.addAll([
         const SizedBox(height: 28),
-        _buildManualGallery(state),
+        _buildManualGallery(captureProvider),
       ]);
     }
 
@@ -434,11 +393,12 @@ class _DayViewTab extends StatelessWidget {
     );
   }
 
-  Widget _buildDayNavigator(BuildContext context, AppState state) {
-    final currentDay = state.currentDaySet;
-    final isViewingToday = state.isViewingToday;
+  Widget _buildDayNavigator(BuildContext context, CaptureProvider captureProvider) {
+    final currentDay = captureProvider.currentDaySet;
+    final isViewingToday = captureProvider.isViewingToday;
+
     final hasPrev = currentDay.dayNumber > 1;
-    final hasNext = currentDay.dayNumber < state.todayImageSet.dayNumber;
+    final hasNext = currentDay.dayNumber < captureProvider.todayImageSet.dayNumber;
     
     return FloatingCard(
       backgroundColor: Colors.white,
@@ -450,12 +410,12 @@ class _DayViewTab extends StatelessWidget {
             _DayNavButton(
               icon: Icons.chevron_left_rounded,
               isEnabled: hasPrev,
-              onTap: hasPrev ? () => state.navigatePrevDay() : null,
+              onTap: hasPrev ? () => captureProvider.navigatePrevDay() : null,
             ),
             const SizedBox(width: 12),
             Expanded(
               child: GestureDetector(
-                onTap: () => _showDayPicker(context, state),
+                onTap: () => _showDayPicker(context, captureProvider),
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   decoration: BoxDecoration(
@@ -516,7 +476,7 @@ class _DayViewTab extends StatelessWidget {
             _DayNavButton(
               icon: Icons.chevron_right_rounded,
               isEnabled: hasNext,
-              onTap: hasNext ? () => state.navigateNextDay() : null,
+              onTap: hasNext ? () => captureProvider.navigateNextDay() : null,
             ),
           ],
         ),
@@ -524,70 +484,40 @@ class _DayViewTab extends StatelessWidget {
     );
   }
 
-  void _showDayPicker(BuildContext context, AppState state) {
+  void _showDayPicker(BuildContext context, CaptureProvider captureProvider) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (_) => _DayPickerSheet(
-        state: state,
-        onDaySelected: (dayNum) => state.navigateToDay(dayNum),
+        captureProvider: captureProvider,
+        onDaySelected: (dayNum) => captureProvider.navigateToDay(dayNum),
       ),
     );
   }
 
-  Widget _buildScheduleHeader(AppState state) {
-    return FloatingCard(
-      backgroundColor: Colors.white,
-      borderRadius: 8,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: const BoxDecoration(
-                color: Color(0xFFF4F2EE),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.schedule_rounded,
-                color: Color(0xFF132F28),
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Scheduled captures: 6AM • 2PM • 10PM',
-                    style: TextStyle(
-                      color: AppTheme.ink,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  SizedBox(height: 3),
-                  Text(
-                    state.nextCaptureLabel(),
-                    style: const TextStyle(
-                      color: AppTheme.inkFaint,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+  Widget _buildScheduleHeader(CaptureProvider captureProvider) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF2EFE9),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE6E2DA)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.timer_rounded, color: Color(0xFF6B705C)),
+          const SizedBox(width: 10),
+          Text(
+            'Next Capture: ${captureProvider.nextCaptureLabel()}',
+            style: const TextStyle(fontWeight: FontWeight.w800),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildCaptureRow(BuildContext context, AppState state, DailyImageSet daySet) {
+  Widget _buildCaptureRow(BuildContext context, CaptureProvider captureProvider, DailyImageSet daySet) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -618,7 +548,7 @@ class _DayViewTab extends StatelessWidget {
           children: [CaptureSlot.morning, CaptureSlot.afternoon, CaptureSlot.evening].map((slot) {
             final snap = daySet.snapshots[slot];
             final isCaptured = snap != null;
-            final isViewingToday = state.isViewingToday;
+            final isViewingToday = captureProvider.isViewingToday;
             return Expanded(
               child: Padding(
                 padding: EdgeInsets.only(
@@ -629,9 +559,9 @@ class _DayViewTab extends StatelessWidget {
                   snapshot: snap,
                   isReadOnly: !isViewingToday,
                   onTap: isCaptured
-                      ? () => _previewImage(context, state, snap!, slot)
+                      ? () => _previewImage(context, captureProvider, snap!, slot)
                       : isViewingToday
-                          ? () => _captureSlot(context, state, slot)
+                          ? () => _captureSlot(context, captureProvider, slot)
                           : null,
                 ),
               ),
@@ -657,7 +587,7 @@ class _DayViewTab extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.08),
+                    color: color.withValues(alpha:0.08),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(
@@ -904,9 +834,9 @@ class _DayViewTab extends StatelessWidget {
     );
   }
 
-  Widget _buildManualCapture(BuildContext context, AppState state) {
+  Widget _buildManualCapture(BuildContext context, CaptureProvider captureProvider) {
     return FloatingCard(
-      onTap: () => _captureSlot(context, state, CaptureSlot.manual),
+      onTap: () => _captureSlot(context, captureProvider, CaptureSlot.manual),
       backgroundColor: const Color(0xFF132F28),
       borderRadius: 14,
       child: const Padding(
@@ -935,12 +865,12 @@ class _DayViewTab extends StatelessWidget {
     );
   }
 
-  Widget _buildManualGallery(AppState state) {
+  Widget _buildManualGallery(CaptureProvider captureProvider) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'MANUAL CAPTURES (${state.manualSnapshots.length})',
+          'MANUAL CAPTURES (${captureProvider.manualSnapshots.length})',
           style: const TextStyle(
             color: AppTheme.ink,
             fontSize: 11,
@@ -957,9 +887,9 @@ class _DayViewTab extends StatelessWidget {
             crossAxisSpacing: 10,
             mainAxisSpacing: 10,
           ),
-          itemCount: state.manualSnapshots.length,
+          itemCount: captureProvider.manualSnapshots.length,
           itemBuilder: (_, i) {
-            final snap = state.manualSnapshots[i];
+            final snap = captureProvider.manualSnapshots[i];
             return FloatingCard(
               backgroundColor: Colors.white,
               borderRadius: 14,
@@ -984,29 +914,6 @@ class _DayViewTab extends StatelessWidget {
         cacheWidth: 300,
         cacheHeight: 300,
         errorBuilder: (_, __, ___) => _fallbackIcon(),
-      );
-    }
-    if (snap.imageUrl != null) {
-      return FutureBuilder<List<int>>(
-        future: GoogleDriveService().downloadImage(snap.imageUrl!),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(strokeWidth: 2),
-            );
-          }
-          if (snapshot.hasData && snapshot.data != null) {
-            return Image.memory(
-              Uint8List.fromList(snapshot.data!),
-              fit: BoxFit.cover,
-              height: double.infinity,
-              width: double.infinity,
-              cacheWidth: 300,
-              cacheHeight: 300,
-            );
-          }
-          return _fallbackIcon();
-        },
       );
     }
     return _fallbackIcon();
@@ -1065,18 +972,18 @@ class _DayNavButton extends StatelessWidget {
 
 // ── Day Picker Bottom Sheet ─────────────────────────────────
 class _DayPickerSheet extends StatelessWidget {
-  final AppState state;
+  final CaptureProvider captureProvider;
   final Function(int) onDaySelected;
 
   const _DayPickerSheet({
-    required this.state,
+    required this.captureProvider,
     required this.onDaySelected,
   });
 
   @override
   Widget build(BuildContext context) {
-    final todayNum = state.todayImageSet.dayNumber;
-    final allDays = state.allDays;
+    final todayNum = captureProvider.todayImageSet.dayNumber;
+    final allDays = captureProvider.allDays;
     
     return Container(
       decoration: const BoxDecoration(
@@ -1248,8 +1155,8 @@ class _GrowthTimelineTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final state = context.watch<AppState>();
-    final timeline = state.growthTimeline;
+    final growthProvider = context.watch<GrowthProvider>();
+    final timeline = growthProvider.growthTimeline;
     final totalDays = timeline.length;
 
     return ListView(
@@ -1676,34 +1583,6 @@ class _MiniThumbnail extends StatelessWidget {
       );
     }
 
-    if (snap.imageUrl != null) {
-      return FutureBuilder<List<int>>(
-        future: GoogleDriveService().downloadImage(snap.imageUrl!),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            );
-          }
-          if (snapshot.hasData && snapshot.data != null) {
-            return Image.memory(
-              Uint8List.fromList(snapshot.data!),
-              fit: BoxFit.cover,
-              height: double.infinity,
-              width: double.infinity,
-              cacheWidth: 150,
-              cacheHeight: 150,
-            );
-          }
-          return _fallbackIcon();
-        },
-      );
-    }
-
     return _fallbackIcon();
   }
 
@@ -1759,7 +1638,7 @@ class _CaptureThumbnail extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.02),
+                  color: Colors.black.withValues(alpha:0.02),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -1815,7 +1694,7 @@ class _CaptureThumbnail extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.6),
+                color: Colors.black.withValues(alpha:0.6),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -1839,30 +1718,6 @@ class _CaptureThumbnail extends StatelessWidget {
         cacheWidth: 300,
         cacheHeight: 300,
         errorBuilder: (_, __, ___) => _fallbackIcon(),
-      );
-    }
-
-    if (snap.imageUrl != null) {
-      return FutureBuilder<List<int>>(
-        future: GoogleDriveService().downloadImage(snap.imageUrl!),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(strokeWidth: 2),
-            );
-          }
-          if (snapshot.hasData && snapshot.data != null) {
-            return Image.memory(
-              Uint8List.fromList(snapshot.data!),
-              fit: BoxFit.cover,
-              height: double.infinity,
-              width: double.infinity,
-              cacheWidth: 300,
-              cacheHeight: 300,
-            );
-          }
-          return _fallbackIcon();
-        },
       );
     }
 
@@ -1902,7 +1757,7 @@ class _DayDetailScreen extends StatelessWidget {
             icon: const Icon(Icons.bug_report, color: Color(0xFF132F28)),
             onPressed: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => DebugMLScreen()),
+              MaterialPageRoute(builder: (_) => MLDebugScreen()),
             ),
           ),
         ],

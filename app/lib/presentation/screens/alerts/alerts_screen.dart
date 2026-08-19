@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../domain/models/sensor_data.dart';
-import '../../providers/app_state.dart';
+import 'package:automato/presentation/providers/alert_provider.dart';
 import '../../theme/app_theme.dart';
 
 class AlertsScreen extends StatelessWidget {
@@ -9,15 +9,15 @@ class AlertsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<AppState>(
-      builder: (context, state, _) {
-        final active   = state.allAlerts.where((a) => !a.isResolved).toList();
-        final resolved = state.allAlerts.where((a) => a.isResolved).toList();
+    return Consumer<AlertProvider>(
+      builder: (context, alertProvider, _) {
+        final active   = alertProvider.activeAlerts;
+        final resolved = alertProvider.allAlerts.where((a) => a.isResolved).toList();
 
         return Scaffold(
           backgroundColor: AppTheme.bg0,
           appBar: AppBar(title: const Text('Alerts')),
-          body: state.allAlerts.isEmpty
+          body: alertProvider.allAlerts.isEmpty
               ? _emptyState()
               : ListView(
                   padding: const EdgeInsets.all(20),
@@ -79,7 +79,7 @@ class _AlertTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
             color: active
-                ? AppTheme.statusAlert.withOpacity(0.25)
+                ? AppTheme.statusAlert.withValues(alpha:0.25)
                 : AppTheme.divider),
       ),
       child: Row(
@@ -88,7 +88,7 @@ class _AlertTile extends StatelessWidget {
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha:0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
@@ -125,7 +125,7 @@ class _AlertTile extends StatelessWidget {
             padding:
                 const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha:0.1),
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(active ? 'ACTIVE' : 'RESOLVED',

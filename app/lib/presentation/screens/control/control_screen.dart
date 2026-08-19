@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:automato/domain/models/sensor_data.dart';
-import 'package:automato/presentation/providers/app_state.dart';
+import 'package:automato/presentation/providers/device_provider.dart';
+import 'package:automato/presentation/providers/sensor_provider.dart';
 import 'package:automato/presentation/theme/app_theme.dart';
 import 'package:automato/presentation/widgets/sensor_card.dart'; // To reuse FloatingCard
 
@@ -14,7 +15,8 @@ class ControlScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final state = context.watch<AppState>();
+    final deviceProvider = context.watch<DeviceProvider>();
+    final sensorProvider = context.watch<SensorProvider>();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F2EE), // Matching warm concrete paper canvas background
@@ -27,29 +29,29 @@ class ControlScreen extends StatelessWidget {
             _buildSectionHeader('Device Control'),
             const SizedBox(height: 14),
 
-            ...state.devices.map((d) => Padding(
+            ...deviceProvider.devices.map((d) => Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: _DeviceCard(
                     device: d,
                     onStatusChanged: (status, isOn) =>
-                        state.setDeviceStatus(d.id, status, isOn),
+                        deviceProvider.setDeviceStatus(d.id, status, isOn),
                   ),
                 )),
             const SizedBox(height: 16),
 
             // ── Emergency Shutdown Button (Positioned below Device Control) ──
-            _buildEmergencyShutdownButton(context, state),
+            _buildEmergencyShutdownButton(context, deviceProvider, sensorProvider),
             const SizedBox(height: 32),
 
             // ── Section 2: Automation Rules ─────────────────────────
             _buildSectionHeader('Automation Rules'),
             const SizedBox(height: 14),
 
-            ...state.automationRules.map((rule) => Padding(
+            ...deviceProvider.automationRules.map((rule) => Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: _RuleCard(
                     rule: rule,
-                    readings: state.readings,
+                    readings: sensorProvider.readings,
                   ),
                 )),
           ],
@@ -73,12 +75,11 @@ class ControlScreen extends StatelessWidget {
   // ═══════════════════════════════════════════════════════════
   // EMERGENCY SHUTDOWN BUTTON — TACTICAL SAFETY FEATURE
   // ═══════════════════════════════════════════════════════════
-  Widget _buildEmergencyShutdownButton(BuildContext context, AppState state) {
-    // Check if any device is currently active to highlight potential safety shutoffs
-    final activeDevicesCount = state.devices.where((d) => d.isOn).length;
+  Widget _buildEmergencyShutdownButton(BuildContext context, DeviceProvider deviceProvider, SensorProvider sensorProvider) {
+    final activeDevicesCount = deviceProvider.devices.where((d) => d.isOn).length;
 
     return FloatingCard(
-      onTap: () => _showShutdownConfirmation(context, state),
+      onTap: () => _showShutdownConfirmation(context, deviceProvider),
       backgroundColor: const Color(0xFFFAEAEA), // Extremely soft warning rose
       borderRadius: 8,
       child: Padding(
@@ -137,7 +138,7 @@ class ControlScreen extends StatelessWidget {
   }
 
   // Display a premium custom confirmation dialog to prevent accidental triggers
-  void _showShutdownConfirmation(BuildContext context, AppState state) {
+  void _showShutdownConfirmation(BuildContext context, DeviceProvider deviceProvider) {
     showDialog(
       context: context,
       builder: (context) {
@@ -169,9 +170,8 @@ class ControlScreen extends StatelessWidget {
             ),
             ElevatedButton(
               onPressed: () {
-                // Loop through and force shutdown all connected IoT actuators
-                for (final device in state.devices) {
-                  state.setDeviceStatus(device.id, DeviceStatus.manualOff, false);
+                for (final device in deviceProvider.devices) {
+                  deviceProvider.setDeviceStatus(device.id, DeviceStatus.manualOff, false);
                 }
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -390,7 +390,7 @@ class _ModeChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 8),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: selected ? c.withOpacity(0.12) : const Color(0xFFF4F2EE),
+          color: selected ? c.withValues(alpha:0.12) : const Color(0xFFF4F2EE),
           borderRadius: BorderRadius.circular(20), // Premium pill shapes
         ),
         child: Text(
@@ -442,7 +442,7 @@ class _RuleCard extends StatelessWidget {
                 boxShadow: isTriggered
                     ? [
                         BoxShadow(
-                          color: AppTheme.statusWarning.withOpacity(0.3),
+                          color: AppTheme.statusWarning.withValues(alpha:0.3),
                           blurRadius: 4,
                           spreadRadius: 1,
                         ),

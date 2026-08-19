@@ -30,12 +30,12 @@ class FloatingCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(borderRadius),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.03),
+              color: Colors.black.withValues(alpha:0.03),
               blurRadius: 18,
               offset: const Offset(0, 8),
             ),
             BoxShadow(
-              color: Colors.black.withOpacity(0.02),
+              color: Colors.black.withValues(alpha:0.02),
               blurRadius: 6,
               offset: const Offset(0, 2),
             ),
@@ -129,10 +129,10 @@ class _SensorCardState extends State<SensorCard> {
         ? CardColors(
             background: Colors.grey.shade100,
             accent: AppTheme.inkFaint,
-            track: AppTheme.inkFaint.withOpacity(0.2),
-            badgeBg: AppTheme.inkFaint.withOpacity(0.1),
+            track: AppTheme.inkFaint.withValues(alpha:0.2),
+            badgeBg: AppTheme.inkFaint.withValues(alpha:0.1),
             badgeText: AppTheme.inkFaint,
-            analysisBg: AppTheme.inkFaint.withOpacity(0.05),
+            analysisBg: AppTheme.inkFaint.withValues(alpha:0.05),
           )
         : colors;
 
